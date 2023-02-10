@@ -23,7 +23,7 @@ import org.apache.nifi.processor.exception.ProcessException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -32,6 +32,7 @@ import org.mockito.MockitoAnnotations;
 import java.io.FileNotFoundException;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.StringJoiner;
 
@@ -39,6 +40,7 @@ import static org.apache.nifi.jasn1.JASN1Reader.ASN_FILES;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -75,7 +77,7 @@ public class JASN1ReaderTest {
 
         testSubject.deleteAsnOutDir();
 
-        assertTrue(!testSubject.asnOutDir.toFile().exists());
+        assertFalse(testSubject.asnOutDir.toFile().exists());
     }
 
     @Test
@@ -97,7 +99,7 @@ public class JASN1ReaderTest {
     }
 
     @Test
-    public void testAsnFileDoesntExist() throws Exception {
+    public void testAsnFileDoesntExist() {
         // GIVEN
         ConfigurationContext context = mock(ConfigurationContext.class, RETURNS_DEEP_STUBS);
         when(context.getProperty(ASN_FILES).isSet()).thenReturn(true);
@@ -124,7 +126,7 @@ public class JASN1ReaderTest {
      * Checks reported messages of underlying libraries that are explained in additionalDetails.html.
      * In case of changes to this test additionalDetails.html may need to be updated as well.
      */
-    public void testCantParseAsn() throws Exception {
+    public void testCantParseAsn() {
         // GIVEN
         String asnFile = Paths.get("src", "test", "resources", "cant_parse.asn").toString();
 
@@ -138,12 +140,13 @@ public class JASN1ReaderTest {
         testParseError(asnFile, expectedErrorMessages);
     }
 
+    @DisabledOnOs({ OS.WINDOWS })
     @Test
     /*
      * Checks reported messages of underlying libraries that are explained in additionalDetails.html.
      * In case of changes to this test additionalDetails.html may need to be updated as well.
      */
-    public void testCantCompileAsn() throws Exception {
+    public void testCantCompileAsn() {
         // GIVEN
         String asnFiles = Paths.get("src", "test", "resources", "cant_compile.asn").toString();
 
@@ -158,17 +161,17 @@ public class JASN1ReaderTest {
         testCompileError(asnFiles, expectedErrorMessages);
     }
 
-    @EnabledOnOs({ OS.MAC, OS.WINDOWS })
+    @DisabledOnOs({ OS.WINDOWS })
     @Test
     /*
      * Checks reported messages of underlying libraries that are explained in additionalDetails.html.
      * In case of changes to this test additionalDetails.html may need to be updated as well.
      */
-    public void testCantCompileAsnOnMacWindows() throws Exception {
+    public void testCantCompileAsnOnMacWindows() {
         // GIVEN
         String asnFiles = Paths.get("src", "test", "resources", "cant_compile_mac_windows.asn").toString();
 
-        List<String> expectedErrorMessages = Arrays.asList(
+        List<String> expectedErrorMessages = Collections.singletonList(
                 ".*SAMENAMEWithDifferentCase.*SAMENAMEWithDifferentCase.*"
         );
 
