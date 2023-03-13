@@ -19,7 +19,7 @@
     </parent>
 
     <properties>
-        <accumulo.version>2.0.1</accumulo.version>
+        <accumulo.version>2.1.0</accumulo.version>
     </properties>
 
     <artifactId>nifi-accumulo-bundle</artifactId>
@@ -97,14 +97,6 @@
                     <exclusion>
                         <groupId>com.github.spotbugs</groupId>
                         <artifactId>spotbugs-annotations</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>log4j</groupId>
-                        <artifactId>log4j</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>slf4j-log4j12</artifactId>
                     </exclusion>
                     <exclusion>
                         <groupId>commons-logging</groupId>
