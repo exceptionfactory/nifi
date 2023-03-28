@@ -29,8 +29,15 @@
     </properties>
 
     <modules>
-        <module>nifi-kafka-2-6-processors</module>
         <module>nifi-kafka-2-6-nar</module>
+        <module>nifi-kafka-2-6-processors</module>
+        <module>nifi-kafka-3-integration</module>
+        <module>nifi-kafka-3-service-nar</module>
+        <module>nifi-kafka-3-service</module>
+        <module>nifi-kafka-nar</module>
+        <module>nifi-kafka-processors</module>
+        <module>nifi-kafka-service-api-nar</module>
+        <module>nifi-kafka-service-api</module>
         <module>nifi-kafka-shared</module>
     </modules>
     <dependencyManagement>
