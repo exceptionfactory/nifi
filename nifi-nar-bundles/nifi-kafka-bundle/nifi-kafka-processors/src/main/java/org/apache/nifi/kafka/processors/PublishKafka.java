@@ -27,6 +27,8 @@ import org.apache.nifi.kafka.processors.producer.convert.DelimitedStreamKafkaRec
 import org.apache.nifi.kafka.processors.producer.convert.FlowFileStreamKafkaRecordConverter;
 import org.apache.nifi.kafka.processors.producer.convert.KafkaRecordConverter;
 import org.apache.nifi.kafka.processors.producer.convert.RecordStreamKafkaRecordConverter;
+import org.apache.nifi.kafka.processors.producer.header.AttributesHeadersFactory;
+import org.apache.nifi.kafka.processors.producer.header.HeadersFactory;
 import org.apache.nifi.kafka.service.api.KafkaConnectionService;
 import org.apache.nifi.kafka.service.api.common.PartitionState;
 import org.apache.nifi.kafka.service.api.producer.KafkaProducerService;
@@ -50,6 +52,7 @@ import org.apache.nifi.serialization.RecordSetWriterFactory;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -59,6 +62,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import static org.apache.nifi.expression.ExpressionLanguageScope.NONE;
 
@@ -146,6 +150,27 @@ public class PublishKafka extends AbstractProcessor implements VerifiableProcess
             .allowableValues(UTF8_ENCODING, HEX_ENCODING)
             .build();
 
+    static final PropertyDescriptor ATTRIBUTE_NAME_REGEX = new PropertyDescriptor.Builder()
+            .name("attribute-name-regex")
+            .displayName("Attributes to Send as Headers (Regex)")
+            .description("A Regular Expression that is matched against all FlowFile attribute names. "
+                    + "Any attribute whose name matches the regex will be added to the Kafka messages as a Header. "
+                    + "If not specified, no FlowFile attributes will be added as headers.")
+            .addValidator(StandardValidators.REGULAR_EXPRESSION_VALIDATOR)
+            .expressionLanguageSupported(ExpressionLanguageScope.NONE)
+            .required(false)
+            .build();
+
+    static final PropertyDescriptor MESSAGE_HEADER_ENCODING = new PropertyDescriptor.Builder()
+            .name("message-header-encoding")
+            .displayName("Message Header Encoding")
+            .description("For any attribute that is added as a message header, as configured via the <Attributes to Send as Headers> property, "
+                    + "this property indicates the Character Encoding to use for serializing the headers.")
+            .addValidator(StandardValidators.CHARACTER_SET_VALIDATOR)
+            .defaultValue("UTF-8")
+            .required(false)
+            .build();
+
     private static final List<PropertyDescriptor> DESCRIPTORS = Collections.unmodifiableList(Arrays.asList(
             CONNECTION_SERVICE,
             TOPIC_NAME,
@@ -154,6 +179,8 @@ public class PublishKafka extends AbstractProcessor implements VerifiableProcess
             MESSAGE_DEMARCATOR,
             KEY,
             KEY_ATTRIBUTE_ENCODING,
+            ATTRIBUTE_NAME_REGEX,
+            MESSAGE_HEADER_ENCODING,
             MAX_REQUEST_SIZE
     ));
 
@@ -200,8 +227,14 @@ public class PublishKafka extends AbstractProcessor implements VerifiableProcess
         final String keyAttribute = context.getProperty(KEY).getValue();
         final String keyAttributeEncoding = context.getProperty(KEY_ATTRIBUTE_ENCODING).getValue();
 
+        final String attributeNameRegex = context.getProperty(ATTRIBUTE_NAME_REGEX).getValue();
+        final Pattern attributeNamePattern = (attributeNameRegex == null) ? null : Pattern.compile(attributeNameRegex);
+        final String charsetName = context.getProperty(MESSAGE_HEADER_ENCODING).evaluateAttributeExpressions().getValue();
+        final Charset charset = Charset.forName(charsetName);
+        final HeadersFactory headersFactory = new AttributesHeadersFactory(attributeNamePattern, charset);
+
         final KafkaRecordConverter kafkaConverter = getRecordConverterFor(
-                readerFactory, writerFactory, keyAttribute, keyAttributeEncoding, propertyDemarcator, flowFile, maxMessageSize);
+                readerFactory, writerFactory, keyAttribute, keyAttributeEncoding, headersFactory, propertyDemarcator, flowFile, maxMessageSize);
         final PublishCallback callback = new PublishCallback(
                 producerService, topicName, kafkaConverter, flowFile.getAttributes(), flowFile.getSize());
 
@@ -211,16 +244,18 @@ public class PublishKafka extends AbstractProcessor implements VerifiableProcess
 
     private KafkaRecordConverter getRecordConverterFor(
             final RecordReaderFactory readerFactory, final RecordSetWriterFactory writerFactory,
-            final String keyAttribute, final String keyAttributeEncoding,
+            final String keyAttribute, final String keyAttributeEncoding, final HeadersFactory headersFactory,
             final PropertyValue propertyValueDemarcator, final FlowFile flowFile, final int maxMessageSize) {
         final KafkaRecordConverter kafkaConverter;
         if ((readerFactory != null) && (writerFactory != null)) {
-            kafkaConverter = new RecordStreamKafkaRecordConverter(readerFactory, writerFactory, keyAttribute, keyAttributeEncoding, maxMessageSize, getLogger());
+            kafkaConverter = new RecordStreamKafkaRecordConverter(readerFactory, writerFactory,
+                    keyAttribute, keyAttributeEncoding, maxMessageSize, headersFactory, getLogger());
         } else if (propertyValueDemarcator.isSet()) {
             final String demarcator = propertyValueDemarcator.evaluateAttributeExpressions(flowFile).getValue();
-            kafkaConverter = new DelimitedStreamKafkaRecordConverter(demarcator.getBytes(StandardCharsets.UTF_8), maxMessageSize);
+            kafkaConverter = new DelimitedStreamKafkaRecordConverter(
+                    demarcator.getBytes(StandardCharsets.UTF_8), maxMessageSize, headersFactory);
         } else {
-            kafkaConverter = new FlowFileStreamKafkaRecordConverter(maxMessageSize);
+            kafkaConverter = new FlowFileStreamKafkaRecordConverter(maxMessageSize, headersFactory);
         }
         return kafkaConverter;
     }

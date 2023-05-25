@@ -17,10 +17,12 @@
 package org.apache.nifi.kafka.processors.producer.convert;
 
 import org.apache.nifi.kafka.processors.producer.common.ProducerUtils;
+import org.apache.nifi.kafka.processors.producer.header.HeadersFactory;
 import org.apache.nifi.kafka.processors.producer.key.AttributeKeyFactory;
 import org.apache.nifi.kafka.processors.producer.key.KeyFactory;
 import org.apache.nifi.kafka.processors.producer.value.RecordValueFactory;
 import org.apache.nifi.kafka.processors.producer.value.ValueFactory;
+import org.apache.nifi.kafka.service.api.header.KafkaHeader;
 import org.apache.nifi.kafka.service.api.record.KafkaRecord;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.schema.access.SchemaNotFoundException;
@@ -38,6 +40,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -51,6 +54,7 @@ public class RecordStreamKafkaRecordConverter implements KafkaRecordConverter {
     private final String keyAttribute;
     private final String keyAttributeEncoding;
     private final int maxMessageSize;
+    private final HeadersFactory headersFactory;
     private final ComponentLog logger;
 
     public RecordStreamKafkaRecordConverter(
@@ -59,12 +63,14 @@ public class RecordStreamKafkaRecordConverter implements KafkaRecordConverter {
             final String keyAttribute,
             final String keyAttributeEncoding,
             final int maxMessageSize,
+            final HeadersFactory headersFactory,
             final ComponentLog logger) {
         this.readerFactory = readerFactory;
         this.writerFactory = writerFactory;
         this.keyAttribute = keyAttribute;
         this.keyAttributeEncoding = keyAttributeEncoding;
         this.maxMessageSize = maxMessageSize;
+        this.headersFactory = headersFactory;
         this.logger = logger;
     }
 
@@ -90,9 +96,10 @@ public class RecordStreamKafkaRecordConverter implements KafkaRecordConverter {
             final Map<String, String> attributes,
             final ByteArrayOutputStream os,
             final RecordSetWriter writer,
-            final PushBackRecordSet pushBackRecordSet) {
+            final PushBackRecordSet pushBackRecordSet) throws IOException {
         final KeyFactory keyFactory = new AttributeKeyFactory(attributes, keyAttribute, keyAttributeEncoding);
         final ValueFactory valueFactory = new RecordValueFactory(os, writer, pushBackRecordSet);
+        final List<KafkaHeader> headers = headersFactory.getHeaders(attributes);
 
         return new Iterator<>() {
             @Override
@@ -110,7 +117,7 @@ public class RecordStreamKafkaRecordConverter implements KafkaRecordConverter {
                     final byte[] recordKey = keyFactory.getKey();
                     final byte[] recordValue = valueFactory.getValue();
                     ProducerUtils.checkMessageSize(maxMessageSize, recordValue.length);
-                    return new KafkaRecord(recordKey, recordValue);
+                    return new KafkaRecord(recordKey, recordValue, headers);
                 } catch (final IOException e) {
                     throw new UncheckedIOException(e);
                 }
