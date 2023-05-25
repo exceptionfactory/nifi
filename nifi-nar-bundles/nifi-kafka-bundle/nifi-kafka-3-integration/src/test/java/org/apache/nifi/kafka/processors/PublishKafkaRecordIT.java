@@ -23,6 +23,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.nifi.json.JsonRecordSetWriter;
 import org.apache.nifi.json.JsonTreeReader;
@@ -42,9 +43,12 @@ import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
@@ -91,6 +95,7 @@ public class PublishKafkaRecordIT {
     @Test
     public void test_1_KafkaTestContainerProduceOneFlowFile() throws InitializationException {
         final TestRunner runner = TestRunners.newTestRunner(PublishKafka.class);
+        runner.setValidateExpressionUsage(false);
 
         final Map<String, String> connectionServiceProps = new HashMap<>();
         connectionServiceProps.put(Kafka3ConnectionService.BOOTSTRAP_SERVERS.getName(), kafka.getBootstrapServers());
@@ -101,6 +106,7 @@ public class PublishKafkaRecordIT {
         runner.setProperty(PublishKafka.CONNECTION_SERVICE, SERVICE_ID);
         runner.setProperty(PublishKafka.TOPIC_NAME, TEST_TOPIC);
         runner.setProperty(PublishKafka.KEY, KEY_ATTRIBUTE_KEY);
+        runner.setProperty(PublishKafka.ATTRIBUTE_NAME_REGEX, "a.*");
 
         final String readerId = "record-reader";
         final RecordReaderFactory readerService = new JsonTreeReader();
@@ -115,6 +121,9 @@ public class PublishKafkaRecordIT {
 
         final Map<String, String> attributes = new HashMap<>();
         attributes.put(KEY_ATTRIBUTE_KEY, KEY_ATTRIBUTE_VALUE);
+        attributes.put("a1", "valueA1");
+        attributes.put("b1", "valueB1");
+
         runner.enqueue(bytesJson, attributes);
         runner.run(1);
         runner.assertAllFlowFilesTransferred(PublishKafka.REL_SUCCESS, 1);
@@ -138,6 +147,11 @@ public class PublishKafkaRecordIT {
             for (ConsumerRecord<String, String> record : records) {
                 assertEquals(KEY_ATTRIBUTE_VALUE, record.key());
                 assertNotNull(objectMapper.readTree(record.value()));
+                final List<Header> headers = Arrays.asList(record.headers().toArray());
+                assertEquals(1, headers.size());
+                final Header header = record.headers().iterator().next();
+                assertEquals("a1", header.key());
+                assertEquals("valueA1", new String(header.value(), StandardCharsets.UTF_8));
             }
         }
     }

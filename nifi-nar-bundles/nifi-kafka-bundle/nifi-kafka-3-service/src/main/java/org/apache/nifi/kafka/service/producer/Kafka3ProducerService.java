@@ -20,6 +20,8 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.PartitionInfo;
+import org.apache.kafka.common.header.Header;
+import org.apache.kafka.common.header.internals.RecordHeader;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.nifi.kafka.service.api.common.PartitionState;
 import org.apache.nifi.kafka.service.api.producer.KafkaProducerService;
@@ -50,7 +52,7 @@ public class Kafka3ProducerService implements KafkaProducerService {
     }
 
     private ProducerRecord<byte[], byte[]> toProducerRecord(final String topicName, final KafkaRecord kafkaRecord) {
-        return new ProducerRecord<>(topicName, kafkaRecord.getKey(), kafkaRecord.getValue());
+        return new ProducerRecord<>(topicName, 0, kafkaRecord.getKey(), kafkaRecord.getValue(), toKafkaHeadersNative(kafkaRecord));
     }
 
     @Override
@@ -58,6 +60,12 @@ public class Kafka3ProducerService implements KafkaProducerService {
         final List<PartitionInfo> partitionInfos = producer.partitionsFor(topic);
         return partitionInfos.stream()
                 .map(p -> new PartitionState(p.topic(), p.partition()))
+                .collect(Collectors.toList());
+    }
+
+    public List<Header> toKafkaHeadersNative(final KafkaRecord kafkaRecord) {
+        return kafkaRecord.getHeaders().stream()
+                .map(h -> new RecordHeader(h.getKey(), h.getValue()))
                 .collect(Collectors.toList());
     }
 }

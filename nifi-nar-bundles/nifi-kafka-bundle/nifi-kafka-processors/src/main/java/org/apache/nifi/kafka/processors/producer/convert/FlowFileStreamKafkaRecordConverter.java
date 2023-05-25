@@ -17,6 +17,7 @@
 package org.apache.nifi.kafka.processors.producer.convert;
 
 import org.apache.nifi.kafka.processors.producer.common.ProducerUtils;
+import org.apache.nifi.kafka.processors.producer.header.HeadersFactory;
 import org.apache.nifi.kafka.service.api.record.KafkaRecord;
 import org.apache.nifi.stream.io.StreamUtils;
 
@@ -33,9 +34,11 @@ import java.util.Map;
  */
 public class FlowFileStreamKafkaRecordConverter implements KafkaRecordConverter {
     final int maxMessageSize;
+    final HeadersFactory headersFactory;
 
-    public FlowFileStreamKafkaRecordConverter(final int maxMessageSize) {
+    public FlowFileStreamKafkaRecordConverter(final int maxMessageSize, final HeadersFactory headersFactory) {
         this.maxMessageSize = maxMessageSize;
+        this.headersFactory = headersFactory;
     }
 
     @Override
@@ -44,7 +47,7 @@ public class FlowFileStreamKafkaRecordConverter implements KafkaRecordConverter 
         ProducerUtils.checkMessageSize(maxMessageSize, inputLength);
         final ByteArrayOutputStream bos = new ByteArrayOutputStream();
         StreamUtils.copy(in, bos);
-        final KafkaRecord kafkaRecord = new KafkaRecord(null, bos.toByteArray());
+        final KafkaRecord kafkaRecord = new KafkaRecord(null, bos.toByteArray(), headersFactory.getHeaders(attributes));
         return Collections.singletonList(kafkaRecord).iterator();
     }
 }

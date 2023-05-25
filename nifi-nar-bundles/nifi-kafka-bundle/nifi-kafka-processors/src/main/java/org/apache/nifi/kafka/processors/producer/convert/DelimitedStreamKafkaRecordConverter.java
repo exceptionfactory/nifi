@@ -17,6 +17,7 @@
 package org.apache.nifi.kafka.processors.producer.convert;
 
 import org.apache.nifi.kafka.processors.producer.common.ProducerUtils;
+import org.apache.nifi.kafka.processors.producer.header.HeadersFactory;
 import org.apache.nifi.kafka.service.api.record.KafkaRecord;
 import org.apache.nifi.stream.io.util.StreamDemarcator;
 
@@ -34,10 +35,12 @@ import java.util.Map;
 public class DelimitedStreamKafkaRecordConverter implements KafkaRecordConverter {
     private final byte[] demarcatorBytes;
     private final int maxMessageSize;
+    private final HeadersFactory headersFactory;
 
-    public DelimitedStreamKafkaRecordConverter(final byte[] demarcatorBytes, int maxMessageSize) {
+    public DelimitedStreamKafkaRecordConverter(final byte[] demarcatorBytes, final int maxMessageSize, final HeadersFactory headersFactory) {
         this.demarcatorBytes = demarcatorBytes;
         this.maxMessageSize = maxMessageSize;
+        this.headersFactory = headersFactory;
     }
 
     @Override
@@ -48,7 +51,7 @@ public class DelimitedStreamKafkaRecordConverter implements KafkaRecordConverter
             byte[] messageContent;
             while ((messageContent = demarcator.nextToken()) != null) {
                 ProducerUtils.checkMessageSize(maxMessageSize, messageContent.length);
-                kafkaRecords.add(new KafkaRecord(null, messageContent));
+                kafkaRecords.add(new KafkaRecord(null, messageContent, headersFactory.getHeaders(attributes)));
             }
         }
         return kafkaRecords.iterator();
