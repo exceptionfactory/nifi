@@ -25,11 +25,11 @@ public class KafkaHeader {
         this.value = value;
     }
 
-    public String getKey() {
+    public String key() {
         return key;
     }
 
-    public byte[] getValue() {
+    public byte[] value() {
         return value;
     }
 }

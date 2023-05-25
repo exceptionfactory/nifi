@@ -18,9 +18,7 @@ package org.apache.nifi.kafka.processors.producer.convert;
 
 import org.apache.nifi.kafka.processors.producer.common.ProducerUtils;
 import org.apache.nifi.kafka.processors.producer.header.HeadersFactory;
-import org.apache.nifi.kafka.processors.producer.key.KeyFactory;
-import org.apache.nifi.kafka.processors.producer.value.RecordValueFactory;
-import org.apache.nifi.kafka.processors.producer.value.ValueFactory;
+import org.apache.nifi.kafka.processors.producer.wrapper.WrapperRecord;
 import org.apache.nifi.kafka.service.api.header.KafkaHeader;
 import org.apache.nifi.kafka.service.api.record.KafkaRecord;
 import org.apache.nifi.logging.ComponentLog;
@@ -39,6 +37,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -48,26 +48,39 @@ import java.util.Map;
  * {@link org.apache.nifi.serialization.record.Record} objects to {@link KafkaRecord} for publish to
  * Kafka.
  */
-public class RecordStreamKafkaRecordConverter implements KafkaRecordConverter {
+public class RecordWrapperStreamKafkaRecordConverter implements KafkaRecordConverter {
     private final RecordReaderFactory readerFactory;
     private final RecordSetWriterFactory writerFactory;
-    private final KeyFactory keyFactory;
+    private final RecordSetWriterFactory keyWriterFactory;
+    private final String messageKeyField;
     private final int maxMessageSize;
     private final HeadersFactory headersFactory;
+    private final String topic;
+    private final Integer partition;
+    private final Long timestamp;
+
     private final ComponentLog logger;
 
-    public RecordStreamKafkaRecordConverter(
+    public RecordWrapperStreamKafkaRecordConverter(
             final RecordReaderFactory readerFactory,
             final RecordSetWriterFactory writerFactory,
-            final KeyFactory keyFactory,
+            final RecordSetWriterFactory keyWriterFactory,
+            final String messageKeyField,
             final int maxMessageSize,
             final HeadersFactory headersFactory,
+            final String topic,
+            final Integer partition,
+            final Long timestamp,
             final ComponentLog logger) {
         this.readerFactory = readerFactory;
         this.writerFactory = writerFactory;
-        this.keyFactory = keyFactory;
+        this.keyWriterFactory = keyWriterFactory;
+        this.messageKeyField = messageKeyField;
         this.maxMessageSize = maxMessageSize;
         this.headersFactory = headersFactory;
+        this.topic = topic;
+        this.partition = partition;
+        this.timestamp = timestamp;
         this.logger = logger;
     }
 
@@ -78,12 +91,11 @@ public class RecordStreamKafkaRecordConverter implements KafkaRecordConverter {
         try {
             final RecordReader reader = readerFactory.createRecordReader(attributes, in, inputLength, logger);
             final RecordSet recordSet = reader.createRecordSet();
-            final RecordSchema schema = writerFactory.getSchema(attributes, recordSet.getSchema());
-
+            //final RecordSchema schema = writerFactory.getSchema(attributes, recordSet.getSchema());
             final ByteArrayOutputStream os = new ByteArrayOutputStream();
-            final RecordSetWriter writer = writerFactory.createWriter(logger, schema, os, attributes);
+            //final RecordSetWriter writer = writerFactory.createWriter(logger, schema, os, attributes);
             final PushBackRecordSet pushBackRecordSet = new PushBackRecordSet(recordSet);
-            return toKafkaRecordIterator(attributes, os, writer, pushBackRecordSet);
+            return toKafkaRecordIterator(attributes, os, /*writer,*/ pushBackRecordSet);
         } catch (MalformedRecordException | SchemaNotFoundException e) {
             throw new IOException(e);
         }
@@ -92,9 +104,7 @@ public class RecordStreamKafkaRecordConverter implements KafkaRecordConverter {
     private Iterator<KafkaRecord> toKafkaRecordIterator(
             final Map<String, String> attributes,
             final ByteArrayOutputStream os,
-            final RecordSetWriter writer,
             final PushBackRecordSet pushBackRecordSet) throws IOException {
-        final ValueFactory valueFactory = new RecordValueFactory(os, writer);
         final List<KafkaHeader> headers = headersFactory.getHeaders(attributes);
 
         return new Iterator<>() {
@@ -111,12 +121,33 @@ public class RecordStreamKafkaRecordConverter implements KafkaRecordConverter {
             public KafkaRecord next() {
                 try {
                     final Record record = pushBackRecordSet.next();
-                    final byte[] recordKey = keyFactory.getKey(attributes);
-                    final byte[] recordValue = valueFactory.getValue(record);
-                    ProducerUtils.checkMessageSize(maxMessageSize, recordValue.length);
-                    return new KafkaRecord(recordKey, recordValue, headers);
+
+                    final WrapperRecord wrapperRecord = new WrapperRecord(record, Collections.emptyList(),
+                            StandardCharsets.UTF_8, messageKeyField, topic, partition, timestamp);
+                    final RecordSchema wrapperRecordSchema = wrapperRecord.getSchema();
+
+                    final Record recordKey = (Record) record.getValue(messageKeyField);
+                    final RecordSchema recordKeySchema = ((recordKey == null) ? null : recordKey.getSchema());
+
+                    final RecordSetWriter writer = writerFactory.createWriter(logger, wrapperRecordSchema, os, attributes);
+                    final RecordSetWriter writerKey = keyWriterFactory.createWriter(logger, recordKeySchema, os, attributes);
+
+                    os.reset();
+                    writer.write(wrapperRecord);
+                    writer.flush();
+                    final byte[] recordBytes = os.toByteArray();
+
+                    os.reset();
+                    writerKey.write(recordKey);
+                    writerKey.flush();
+                    final byte[] recordKeyBytes = os.toByteArray();
+
+                    ProducerUtils.checkMessageSize(maxMessageSize, recordBytes.length);
+                    return new KafkaRecord(recordKeyBytes, recordBytes, headers);
                 } catch (final IOException e) {
                     throw new UncheckedIOException(e);
+                } catch (SchemaNotFoundException e) {
+                    throw new RuntimeException(e);
                 }
             }
         };

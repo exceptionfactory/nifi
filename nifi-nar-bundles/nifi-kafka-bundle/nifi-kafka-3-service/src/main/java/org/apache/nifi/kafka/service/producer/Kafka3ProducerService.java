@@ -65,7 +65,7 @@ public class Kafka3ProducerService implements KafkaProducerService {
 
     public List<Header> toKafkaHeadersNative(final KafkaRecord kafkaRecord) {
         return kafkaRecord.getHeaders().stream()
-                .map(h -> new RecordHeader(h.getKey(), h.getValue()))
+                .map(h -> new RecordHeader(h.key(), h.value()))
                 .collect(Collectors.toList());
     }
 }

@@ -16,11 +16,13 @@
  */
 package org.apache.nifi.kafka.processors.producer.value;
 
+import org.apache.nifi.serialization.record.Record;
+
 import java.io.IOException;
 
 /**
  * Implementations of converters from FlowFile data to Kafka record value.
  */
 public interface ValueFactory {
-    byte[] getValue() throws IOException;
+    byte[] getValue(Record record) throws IOException;
 }

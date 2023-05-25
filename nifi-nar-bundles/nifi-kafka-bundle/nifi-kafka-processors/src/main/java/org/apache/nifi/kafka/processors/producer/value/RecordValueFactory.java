@@ -17,7 +17,7 @@
 package org.apache.nifi.kafka.processors.producer.value;
 
 import org.apache.nifi.serialization.RecordSetWriter;
-import org.apache.nifi.serialization.record.PushBackRecordSet;
+import org.apache.nifi.serialization.record.Record;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -25,22 +25,18 @@ import java.io.IOException;
 public class RecordValueFactory implements ValueFactory {
     private final ByteArrayOutputStream os;
     private final RecordSetWriter writer;
-    private final PushBackRecordSet recordSet;
 
     public RecordValueFactory(final ByteArrayOutputStream os,
-                              final RecordSetWriter writer,
-                              final PushBackRecordSet recordSet) {
+                              final RecordSetWriter writer) {
         this.os = os;
         this.writer = writer;
-        this.recordSet = recordSet;
     }
 
     @Override
-    public byte[] getValue() throws IOException {
-        writer.write(recordSet.next());
-        writer.flush();
-        final byte[] value = os.toByteArray();
+    public byte[] getValue(final Record record) throws IOException {
         os.reset();
-        return value;
+        writer.write(record);
+        writer.flush();
+        return os.toByteArray();
     }
 }
