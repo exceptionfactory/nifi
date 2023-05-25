@@ -17,10 +17,11 @@
 package org.apache.nifi.kafka.processors.producer.key;
 
 import java.io.UnsupportedEncodingException;
+import java.util.Map;
 
 /**
  * Implementations of converters from FlowFile data to Kafka record key.
  */
 public interface KeyFactory {
-    byte[] getKey() throws UnsupportedEncodingException;
+    byte[] getKey(Map<String, String> attributes) throws UnsupportedEncodingException;
 }

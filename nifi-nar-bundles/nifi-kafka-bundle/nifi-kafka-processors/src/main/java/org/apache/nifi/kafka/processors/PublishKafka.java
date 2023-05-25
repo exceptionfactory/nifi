@@ -27,8 +27,11 @@ import org.apache.nifi.kafka.processors.producer.convert.DelimitedStreamKafkaRec
 import org.apache.nifi.kafka.processors.producer.convert.FlowFileStreamKafkaRecordConverter;
 import org.apache.nifi.kafka.processors.producer.convert.KafkaRecordConverter;
 import org.apache.nifi.kafka.processors.producer.convert.RecordStreamKafkaRecordConverter;
+import org.apache.nifi.kafka.processors.producer.convert.RecordWrapperStreamKafkaRecordConverter;
 import org.apache.nifi.kafka.processors.producer.header.AttributesHeadersFactory;
 import org.apache.nifi.kafka.processors.producer.header.HeadersFactory;
+import org.apache.nifi.kafka.processors.producer.key.AttributeKeyFactory;
+import org.apache.nifi.kafka.processors.producer.key.KeyFactory;
 import org.apache.nifi.kafka.service.api.KafkaConnectionService;
 import org.apache.nifi.kafka.service.api.common.PartitionState;
 import org.apache.nifi.kafka.service.api.producer.KafkaProducerService;
@@ -36,6 +39,7 @@ import org.apache.nifi.kafka.service.api.producer.ProducerConfiguration;
 import org.apache.nifi.kafka.service.api.producer.PublishContext;
 import org.apache.nifi.kafka.service.api.record.KafkaRecord;
 import org.apache.nifi.kafka.shared.attribute.KafkaFlowFileAttribute;
+import org.apache.nifi.kafka.shared.property.PublishStrategy;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.processor.AbstractProcessor;
 import org.apache.nifi.processor.DataUnit;
@@ -64,8 +68,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import static org.apache.nifi.expression.ExpressionLanguageScope.NONE;
-
 @Tags({"kafka", "producer", "record"})
 public class PublishKafka extends AbstractProcessor implements VerifiableProcessor {
 
@@ -73,12 +75,18 @@ public class PublishKafka extends AbstractProcessor implements VerifiableProcess
     static final AllowableValue HEX_ENCODING = new AllowableValue("hex", "Hex Encoded",
             "The key is interpreted as arbitrary binary data that is encoded using hexadecimal characters with uppercase letters.");
 
+    static final AllowableValue RECORD_METADATA_FROM_RECORD = new AllowableValue("Metadata From Record", "Metadata From Record", "The Kafka Record's Topic and Partition will be determined by " +
+            "looking at the /metadata/topic and /metadata/partition fields of the Record, respectively. If these fields are invalid or not present, the Topic Name and Partition/Partitioner class " +
+            "properties of the processor will be considered.");
+    static final AllowableValue RECORD_METADATA_FROM_PROPERTIES = new AllowableValue("Use Configured Values", "Use Configured Values", "The Kafka Record's Topic will be determined using the 'Topic " +
+            "Name' processor property. The partition will be determined using the 'Partition' and 'Partitioner class' properties.");
+
     static final PropertyDescriptor CONNECTION_SERVICE = new PropertyDescriptor.Builder()
             .name("Kafka Connection Service")
             .displayName("Kafka Connection Service")
             .description("Provides connections to Kafka Broker for publishing Kafka Records")
             .identifiesControllerService(KafkaConnectionService.class)
-            .expressionLanguageSupported(NONE)
+            .expressionLanguageSupported(ExpressionLanguageScope.NONE)
             .required(true)
             .build();
 
@@ -96,7 +104,7 @@ public class PublishKafka extends AbstractProcessor implements VerifiableProcess
             .displayName("Record Reader")
             .description("The Record Reader to use for incoming FlowFiles")
             .identifiesControllerService(RecordReaderFactory.class)
-            .expressionLanguageSupported(NONE)
+            .expressionLanguageSupported(ExpressionLanguageScope.NONE)
             .build();
 
     static final PropertyDescriptor RECORD_WRITER = new PropertyDescriptor.Builder()
@@ -104,7 +112,26 @@ public class PublishKafka extends AbstractProcessor implements VerifiableProcess
             .displayName("Record Writer")
             .description("The Record Writer to use in order to serialize the data before sending to Kafka")
             .identifiesControllerService(RecordSetWriterFactory.class)
-            .expressionLanguageSupported(NONE)
+            .expressionLanguageSupported(ExpressionLanguageScope.NONE)
+            .build();
+
+    static final PropertyDescriptor PUBLISH_STRATEGY = new PropertyDescriptor.Builder()
+            .name("publish-strategy")
+            .displayName("Publish Strategy")
+            .description("The format used to publish the incoming FlowFile record to Kafka.")
+            .required(true)
+            .defaultValue(PublishStrategy.USE_VALUE.getValue())
+            .allowableValues(PublishStrategy.class)
+            .build();
+
+    static final PropertyDescriptor MESSAGE_KEY_FIELD = new PropertyDescriptor.Builder()
+            .name("message-key-field")
+            .displayName("Message Key Field")
+            .description("The name of a field in the Input Records that should be used as the Key for the Kafka message.")
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
+            .dependsOn(PUBLISH_STRATEGY, PublishStrategy.USE_VALUE.getValue())
+            .required(false)
             .build();
 
     static final PropertyDescriptor MESSAGE_DEMARCATOR = new PropertyDescriptor.Builder()
@@ -158,6 +185,7 @@ public class PublishKafka extends AbstractProcessor implements VerifiableProcess
                     + "If not specified, no FlowFile attributes will be added as headers.")
             .addValidator(StandardValidators.REGULAR_EXPRESSION_VALIDATOR)
             .expressionLanguageSupported(ExpressionLanguageScope.NONE)
+            .dependsOn(PUBLISH_STRATEGY, PublishStrategy.USE_VALUE.getValue())
             .required(false)
             .build();
 
@@ -171,16 +199,39 @@ public class PublishKafka extends AbstractProcessor implements VerifiableProcess
             .required(false)
             .build();
 
+    static final PropertyDescriptor RECORD_KEY_WRITER = new PropertyDescriptor.Builder()
+            .name("record-key-writer")
+            .displayName("Record Key Writer")
+            .description("The Record Key Writer to use for outgoing FlowFiles")
+            .identifiesControllerService(RecordSetWriterFactory.class)
+            .dependsOn(PUBLISH_STRATEGY, PublishStrategy.USE_WRAPPER.getValue())
+            .build();
+
+    static final PropertyDescriptor RECORD_METADATA_STRATEGY = new PropertyDescriptor.Builder()
+            .name("Record Metadata Strategy")
+            .displayName("Record Metadata Strategy")
+            .description("Specifies whether the Record's metadata (topic and partition) should come from the Record's metadata field or if it should come from the configured " +
+                    "Topic Name and Partition / Partitioner class properties")
+            .required(true)
+            .allowableValues(RECORD_METADATA_FROM_PROPERTIES, RECORD_METADATA_FROM_RECORD)
+            .defaultValue(RECORD_METADATA_FROM_PROPERTIES.getValue())
+            .dependsOn(PUBLISH_STRATEGY, PublishStrategy.USE_WRAPPER.getValue())
+            .build();
+
     private static final List<PropertyDescriptor> DESCRIPTORS = Collections.unmodifiableList(Arrays.asList(
             CONNECTION_SERVICE,
             TOPIC_NAME,
             RECORD_READER,
             RECORD_WRITER,
+            PUBLISH_STRATEGY,
+            RECORD_KEY_WRITER,
+            RECORD_METADATA_STRATEGY,
             MESSAGE_DEMARCATOR,
             KEY,
             KEY_ATTRIBUTE_ENCODING,
             ATTRIBUTE_NAME_REGEX,
             MESSAGE_HEADER_ENCODING,
+            MESSAGE_KEY_FIELD,
             MAX_REQUEST_SIZE
     ));
 
@@ -217,15 +268,22 @@ public class PublishKafka extends AbstractProcessor implements VerifiableProcess
         final KafkaConnectionService connectionService = context.getProperty(CONNECTION_SERVICE).asControllerService(KafkaConnectionService.class);
         final KafkaProducerService producerService = connectionService.getProducerService(new ProducerConfiguration());
 
+        final String topic = context.getProperty(TOPIC_NAME).evaluateAttributeExpressions(flowFile).getValue();
+        final String messageKeyField = context.getProperty(MESSAGE_KEY_FIELD).evaluateAttributeExpressions(flowFile).getValue();
+
         final RecordReaderFactory readerFactory = context.getProperty(RECORD_READER).asControllerService(RecordReaderFactory.class);
         final RecordSetWriterFactory writerFactory = context.getProperty(RECORD_WRITER).asControllerService(RecordSetWriterFactory.class);
+        final RecordSetWriterFactory keyWriterFactory = context.getProperty(RECORD_KEY_WRITER).asControllerService(RecordSetWriterFactory.class);
 
         final String topicName = context.getProperty(TOPIC_NAME).evaluateAttributeExpressions(flowFile.getAttributes()).getValue();
         final PropertyValue propertyDemarcator = context.getProperty(MESSAGE_DEMARCATOR);
         final int maxMessageSize = context.getProperty(MAX_REQUEST_SIZE).asDataSize(DataUnit.B).intValue();
 
+        final PublishStrategy publishStrategy = PublishStrategy.valueOf(context.getProperty(PUBLISH_STRATEGY).getValue());
+
         final String keyAttribute = context.getProperty(KEY).getValue();
         final String keyAttributeEncoding = context.getProperty(KEY_ATTRIBUTE_ENCODING).getValue();
+        final KeyFactory keyFactory = new AttributeKeyFactory(keyAttribute, keyAttributeEncoding);
 
         final String attributeNameRegex = context.getProperty(ATTRIBUTE_NAME_REGEX).getValue();
         final Pattern attributeNamePattern = (attributeNameRegex == null) ? null : Pattern.compile(attributeNameRegex);
@@ -233,31 +291,40 @@ public class PublishKafka extends AbstractProcessor implements VerifiableProcess
         final Charset charset = Charset.forName(charsetName);
         final HeadersFactory headersFactory = new AttributesHeadersFactory(attributeNamePattern, charset);
 
-        final KafkaRecordConverter kafkaConverter = getRecordConverterFor(
-                readerFactory, writerFactory, keyAttribute, keyAttributeEncoding, headersFactory, propertyDemarcator, flowFile, maxMessageSize);
+        final KafkaRecordConverter kafkaRecordConverter = getKafkaRecordConverterFor(
+                publishStrategy, topic, readerFactory, writerFactory, keyWriterFactory, messageKeyField,
+                keyFactory, headersFactory, propertyDemarcator, flowFile, maxMessageSize);
         final PublishCallback callback = new PublishCallback(
-                producerService, topicName, kafkaConverter, flowFile.getAttributes(), flowFile.getSize());
+                producerService, topicName, kafkaRecordConverter, flowFile.getAttributes(), flowFile.getSize());
 
         session.read(flowFile, callback);
         session.transfer(flowFile, REL_SUCCESS);
     }
 
-    private KafkaRecordConverter getRecordConverterFor(
+    private KafkaRecordConverter getKafkaRecordConverterFor(
+            final PublishStrategy publishStrategy, final String topic,
             final RecordReaderFactory readerFactory, final RecordSetWriterFactory writerFactory,
-            final String keyAttribute, final String keyAttributeEncoding, final HeadersFactory headersFactory,
+            final RecordSetWriterFactory keyWriterFactory, final String messageKeyField,
+            final KeyFactory keyFactory, final HeadersFactory headersFactory,
             final PropertyValue propertyValueDemarcator, final FlowFile flowFile, final int maxMessageSize) {
-        final KafkaRecordConverter kafkaConverter;
+        final KafkaRecordConverter kafkaRecordConverter;
         if ((readerFactory != null) && (writerFactory != null)) {
-            kafkaConverter = new RecordStreamKafkaRecordConverter(readerFactory, writerFactory,
-                    keyAttribute, keyAttributeEncoding, maxMessageSize, headersFactory, getLogger());
+            if (publishStrategy.equals(PublishStrategy.USE_WRAPPER)) {
+                kafkaRecordConverter = new RecordWrapperStreamKafkaRecordConverter(
+                        readerFactory, writerFactory, keyWriterFactory, messageKeyField,
+                        maxMessageSize, headersFactory, topic, 0, System.currentTimeMillis(), getLogger());
+            } else {
+                kafkaRecordConverter = new RecordStreamKafkaRecordConverter(readerFactory, writerFactory,
+                        keyFactory, maxMessageSize, headersFactory, getLogger());
+            }
         } else if (propertyValueDemarcator.isSet()) {
             final String demarcator = propertyValueDemarcator.evaluateAttributeExpressions(flowFile).getValue();
-            kafkaConverter = new DelimitedStreamKafkaRecordConverter(
+            kafkaRecordConverter = new DelimitedStreamKafkaRecordConverter(
                     demarcator.getBytes(StandardCharsets.UTF_8), maxMessageSize, headersFactory);
         } else {
-            kafkaConverter = new FlowFileStreamKafkaRecordConverter(maxMessageSize, headersFactory);
+            kafkaRecordConverter = new FlowFileStreamKafkaRecordConverter(maxMessageSize, headersFactory);
         }
-        return kafkaConverter;
+        return kafkaRecordConverter;
     }
 
     private static class PublishCallback implements InputStreamCallback {
