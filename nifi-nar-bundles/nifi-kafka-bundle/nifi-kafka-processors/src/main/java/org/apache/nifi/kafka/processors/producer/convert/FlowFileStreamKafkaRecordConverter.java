@@ -47,7 +47,8 @@ public class FlowFileStreamKafkaRecordConverter implements KafkaRecordConverter 
         ProducerUtils.checkMessageSize(maxMessageSize, inputLength);
         final ByteArrayOutputStream bos = new ByteArrayOutputStream();
         StreamUtils.copy(in, bos);
-        final KafkaRecord kafkaRecord = new KafkaRecord(null, bos.toByteArray(), headersFactory.getHeaders(attributes));
+        final KafkaRecord kafkaRecord = new KafkaRecord(
+                null, null, null, null, bos.toByteArray(), headersFactory.getHeaders(attributes));
         return Collections.singletonList(kafkaRecord).iterator();
     }
 }

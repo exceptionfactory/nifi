@@ -51,7 +51,7 @@ public class DelimitedStreamKafkaRecordConverter implements KafkaRecordConverter
             byte[] messageContent;
             while ((messageContent = demarcator.nextToken()) != null) {
                 ProducerUtils.checkMessageSize(maxMessageSize, messageContent.length);
-                kafkaRecords.add(new KafkaRecord(null, messageContent, headersFactory.getHeaders(attributes)));
+                kafkaRecords.add(new KafkaRecord(null, null, null, null, messageContent, headersFactory.getHeaders(attributes)));
             }
         }
         return kafkaRecords.iterator();

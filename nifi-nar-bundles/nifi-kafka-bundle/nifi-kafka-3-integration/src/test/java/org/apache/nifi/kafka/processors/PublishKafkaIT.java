@@ -16,73 +16,39 @@
  */
 package org.apache.nifi.kafka.processors;
 
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.header.Header;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.nifi.kafka.service.Kafka3ConnectionService;
-import org.apache.nifi.kafka.service.api.KafkaConnectionService;
 import org.apache.nifi.reporting.InitializationException;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
-import org.testcontainers.containers.KafkaContainer;
-import org.testcontainers.utility.DockerImageName;
 
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 @TestMethodOrder(MethodOrderer.MethodName.class)
-public class PublishKafkaIT {
-    private static final String IMAGE_NAME = "confluentinc/cp-kafka:7.3.2";
-
-    private static final String TEST_TOPIC = "nifi-" + System.currentTimeMillis();
-
-    private static final String SERVICE_ID = Kafka3ConnectionService.class.getSimpleName();
-
+public class PublishKafkaIT extends PublishKafkaBaseIT {
     private static final String TEST_RECORD_VALUE = "value-" + System.currentTimeMillis();
-
-    private static KafkaContainer kafka;
-
-    @BeforeAll
-    static void beforeAll() {
-        kafka = new KafkaContainer(DockerImageName.parse(IMAGE_NAME));
-        kafka.start();
-    }
-
-    @AfterAll
-    static void afterAll() {
-        kafka.stop();
-    }
 
     @Test
     public void test_1_KafkaTestContainerProduceOne() throws InitializationException {
         final TestRunner runner = TestRunners.newTestRunner(PublishKafka.class);
         runner.setValidateExpressionUsage(false);
-
-        final Map<String, String> connectionServiceProps = new HashMap<>();
-        connectionServiceProps.put(Kafka3ConnectionService.BOOTSTRAP_SERVERS.getName(), kafka.getBootstrapServers());
-        final KafkaConnectionService connectionService = new Kafka3ConnectionService();
-        runner.addControllerService(SERVICE_ID, connectionService, connectionServiceProps);
-        runner.enableControllerService(connectionService);
+        addKafkaConnectionService(runner);
 
         runner.setProperty(PublishKafka.CONNECTION_SERVICE, SERVICE_ID);
-        runner.setProperty(PublishKafka.TOPIC_NAME, TEST_TOPIC);
+        runner.setProperty(PublishKafka.TOPIC_NAME, getClass().getName());
         runner.setProperty(PublishKafka.ATTRIBUTE_NAME_REGEX, "a.*");
 
         final Map<String, String> attributes = new HashMap<>();
@@ -96,18 +62,9 @@ public class PublishKafkaIT {
 
     @Test
     public void test_2_KafkaTestContainerConsumeOne() {
-        final Properties properties = new Properties();
-        properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
-        properties.put(ConsumerConfig.GROUP_ID_CONFIG, "my-group");
-        properties.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, Boolean.TRUE.toString());
-        properties.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, "1000");
-        properties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        properties.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, "15000");
-        properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(properties)) {
-            consumer.subscribe(Collections.singletonList(TEST_TOPIC));
-            final ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(1000));
+        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(getKafkaConsumerProperties())) {
+            consumer.subscribe(Collections.singletonList(getClass().getName()));
+            final ConsumerRecords<String, String> records = consumer.poll(DURATION_POLL);
             assertEquals(1, records.count());
             final ConsumerRecord<String, String> record = records.iterator().next();
             assertNull(record.key());

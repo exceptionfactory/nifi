@@ -14,14 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.nifi.kafka.processors;
+package org.apache.nifi.kafka.processors.publish.additional;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.IOUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.header.Header;
+import org.apache.nifi.kafka.processors.PublishKafka;
+import org.apache.nifi.kafka.processors.PublishKafkaBaseIT;
 import org.apache.nifi.kafka.shared.property.PublishStrategy;
 import org.apache.nifi.reporting.InitializationException;
 import org.apache.nifi.util.TestRunner;
@@ -40,70 +43,56 @@ import java.util.Map;
 import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @TestMethodOrder(MethodOrderer.MethodName.class)
-public class PublishKafkaWrapperRecordIT extends PublishKafkaBaseIT {
-    private static final String TEST_RESOURCE = "org/apache/nifi/kafka/processors/publish/ffwrapper.json";
-
-    private static final String KEY_ATTRIBUTE_KEY = "keyAttribute";
-    private static final String KEY_ATTRIBUTE_VALUE = "keyAttributeValue";
-
-    private static final int TEST_RECORD_COUNT = 3;
+public class PublishKafkaWrapperX3IT extends PublishKafkaBaseIT {
+    private static final String TEST_RESOURCE = "org/apache/nifi/kafka/processors/publish/additional/wrapperX3.json";
 
     @Test
-    public void test_1_KafkaTestContainerProduceOneFlowFile() throws InitializationException, IOException {
+    public void test1ProduceOneFlowFile() throws InitializationException, IOException {
         final TestRunner runner = TestRunners.newTestRunner(PublishKafka.class);
         runner.setValidateExpressionUsage(false);
         addKafkaConnectionService(runner);
         addRecordReaderService(runner);
         addRecordWriterService(runner);
-        addRecordKeyWriterService(runner);
 
-        runner.setProperty(PublishKafka.CONNECTION_SERVICE, SERVICE_ID);
-        runner.setProperty(PublishKafka.TOPIC_NAME, getClass().getName());
-        runner.setProperty(PublishKafka.KEY, KEY_ATTRIBUTE_KEY);
-        runner.setProperty(PublishKafka.MESSAGE_KEY_FIELD, "address");
-        runner.setProperty(PublishKafka.ATTRIBUTE_NAME_REGEX, "a.*");
-        runner.setProperty(PublishKafka.PUBLISH_STRATEGY, PublishStrategy.USE_WRAPPER.name());
+        runner.setProperty("Kafka Connection Service", SERVICE_ID);
+        runner.setProperty("Topic Name", getClass().getName());
+        runner.setProperty("publish-strategy", PublishStrategy.USE_WRAPPER.name());
 
         final Map<String, String> attributes = new HashMap<>();
-        attributes.put(KEY_ATTRIBUTE_KEY, KEY_ATTRIBUTE_VALUE);
-        attributes.put("a1", "valueA1");
-        attributes.put("b1", "valueB1");
         final byte[] bytesFlowFile = IOUtils.toByteArray(Objects.requireNonNull(
                 getClass().getClassLoader().getResource(TEST_RESOURCE)));
         runner.enqueue(bytesFlowFile, attributes);
         runner.run(1);
-        runner.assertAllFlowFilesTransferred(PublishKafka.REL_SUCCESS, 1);
+        runner.assertAllFlowFilesTransferred("success", 1);
     }
 
     @Test
-    public void test_2_KafkaTestContainerConsumeMultipleRecords() throws IOException {
+    public void test2ConsumeOneRecord() throws IOException {
         try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(getKafkaConsumerProperties())) {
             consumer.subscribe(Collections.singletonList(getClass().getName()));
             final ConsumerRecords<String, String> records = consumer.poll(DURATION_POLL);
-            assertEquals(TEST_RECORD_COUNT, records.count());
+            assertEquals(1, records.count());
             for (ConsumerRecord<String, String> record : records) {
+                // kafka record metadata
+                assertEquals(getClass().getName(), record.topic());
+                assertEquals(0, record.partition());
+                assertTrue(record.timestamp() > TIMESTAMP);
+                assertTrue(record.timestamp() < System.currentTimeMillis());
                 // kafka record headers
                 final List<Header> headers = Arrays.asList(record.headers().toArray());
-                assertEquals(1, headers.size());
-                final Header header = record.headers().iterator().next();
-                assertEquals("a1", header.key());
-                assertEquals("valueA1", new String(header.value(), StandardCharsets.UTF_8));
+                assertTrue(headers.isEmpty());
                 // kafka record key
-                final ObjectNode kafkaKey = (ObjectNode) objectMapper.readTree(record.key());
-                assertNotNull(kafkaKey);
-                assertEquals("Main", kafkaKey.get("street-name").textValue());
-                assertEquals(5, (kafkaKey.get("street-number").intValue() % 100));
-                // kafka record value (wrapped record)
+                assertEquals("411b0a140b39581341", Hex.encodeHexString(record.key().getBytes(StandardCharsets.UTF_8)));
+                // kafka record value
                 final ObjectNode kafkaValue = (ObjectNode) objectMapper.readTree(record.value());
                 assertNotNull(kafkaValue);
-                assertNotEquals(0, kafkaValue.get("id").asInt());
-                assertEquals(1, kafkaValue.get("name").asText().length());
-                assertTrue(kafkaValue.get("address") instanceof ObjectNode);
+                assertEquals("1234 First Street", kafkaValue.get("address").textValue());
+                assertEquals("12345", kafkaValue.get("zip").textValue());
+                assertTrue(kafkaValue.get("account") instanceof ObjectNode);
             }
         }
     }

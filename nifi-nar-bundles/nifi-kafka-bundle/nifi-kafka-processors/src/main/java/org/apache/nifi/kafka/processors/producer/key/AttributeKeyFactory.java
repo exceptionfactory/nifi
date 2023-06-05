@@ -16,6 +16,8 @@
  */
 package org.apache.nifi.kafka.processors.producer.key;
 
+import org.apache.nifi.serialization.record.Record;
+
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -32,7 +34,7 @@ public class AttributeKeyFactory implements KeyFactory {
     }
 
     @Override
-    public byte[] getKey(Map<String, String> attributes) throws UnsupportedEncodingException {
+    public byte[] getKey(final Map<String, String> attributes, final Record record) throws UnsupportedEncodingException {
         final String keyAttributeValue = (keyAttribute == null) ? null : attributes.get(keyAttribute);
         return (keyAttributeValue == null) ? null : keyAttributeValue.getBytes(keyAttributeEncoding);
     }

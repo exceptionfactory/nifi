@@ -31,6 +31,7 @@ import org.apache.nifi.kafka.service.api.record.RecordSummary;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
@@ -46,13 +47,15 @@ public class Kafka3ProducerService implements KafkaProducerService {
     public RecordSummary send(final Iterator<KafkaRecord> kafkaRecords, final PublishContext publishContext) {
         while (kafkaRecords.hasNext()) {
             final KafkaRecord kafkaRecord = kafkaRecords.next();
-            producer.send(toProducerRecord(publishContext.getTopicName(), kafkaRecord));
+            producer.send(toProducerRecord(kafkaRecord, publishContext));
         }
         return new RecordSummary();
     }
 
-    private ProducerRecord<byte[], byte[]> toProducerRecord(final String topicName, final KafkaRecord kafkaRecord) {
-        return new ProducerRecord<>(topicName, 0, kafkaRecord.getKey(), kafkaRecord.getValue(), toKafkaHeadersNative(kafkaRecord));
+    private ProducerRecord<byte[], byte[]> toProducerRecord(final KafkaRecord kafkaRecord, final PublishContext publishContext) {
+        final String topic = Optional.ofNullable(kafkaRecord.getTopic()).orElse(publishContext.getTopic());
+        final Integer partition = Optional.ofNullable(kafkaRecord.getPartition()).orElse(publishContext.getPartition());
+        return new ProducerRecord<>(topic, partition, kafkaRecord.getKey(), kafkaRecord.getValue(), toKafkaHeadersNative(kafkaRecord));
     }
 
     @Override

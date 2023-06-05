@@ -21,13 +21,25 @@ package org.apache.nifi.kafka.service.api.producer;
  * {@link org.apache.nifi.kafka.service.api.KafkaConnectionService}.
  */
 public class PublishContext {
-    private final String topicName;
+    private final String topic;
+    private final Integer partition;
+    private final Long timestamp;
 
-    public PublishContext(final String topicName) {
-        this.topicName = topicName;
+    public PublishContext(final String topic, final Integer partition, final Long timestamp) {
+        this.topic = topic;
+        this.partition = partition;
+        this.timestamp = timestamp;
     }
 
-    public String getTopicName() {
-        return topicName;
+    public String getTopic() {
+        return topic;
+    }
+
+    public Integer getPartition() {
+        return partition;
+    }
+
+    public Long getTimestamp() {
+        return timestamp;
     }
 }

@@ -18,7 +18,6 @@ package org.apache.nifi.kafka.service.api.record;
 
 import org.apache.nifi.kafka.service.api.header.KafkaHeader;
 
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -33,21 +32,14 @@ public class KafkaRecord {
     private final byte[] value;
     private final Long timestamp;
 
-    public KafkaRecord(final byte[] key, final byte[] value) {
-        this(null, null, key, value, Collections.emptyList());
-    }
-
-    public KafkaRecord(final byte[] key, final byte[] value, final List<KafkaHeader> headers) {
-        this(null, null, key, value, headers);
-    }
-
-    public KafkaRecord(final String topic, final Integer partition, final byte[] key, final byte[] value, final List<KafkaHeader> headers) {
+    public KafkaRecord(final String topic, final Integer partition, final Long timestamp,
+                       final byte[] key, final byte[] value, final List<KafkaHeader> headers) {
         this.topic = topic;
         this.partition = partition;
+        this.timestamp = timestamp;
         this.headers = headers;
         this.key = key;
         this.value = value;
-        this.timestamp = null;
     }
 
     public String getTopic() {
