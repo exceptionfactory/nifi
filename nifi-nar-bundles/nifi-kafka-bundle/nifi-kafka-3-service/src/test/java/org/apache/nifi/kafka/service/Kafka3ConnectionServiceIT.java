@@ -112,9 +112,9 @@ public class Kafka3ConnectionServiceIT {
     void testProduceOne() {
         runner.enableControllerService(service);
         final KafkaProducerService producerService = service.getProducerService(new ProducerConfiguration());
-        final KafkaRecord kafkaRecord = new KafkaRecord(null, TEST_RECORD_VALUE.getBytes(StandardCharsets.UTF_8));
+        final KafkaRecord kafkaRecord = new KafkaRecord(null, null, null, null, TEST_RECORD_VALUE.getBytes(StandardCharsets.UTF_8), Collections.emptyList());
         final List<KafkaRecord> kafkaRecords = Collections.singletonList(kafkaRecord);
-        final RecordSummary summary = producerService.send(kafkaRecords.iterator(), new PublishContext(TOPIC));
+        final RecordSummary summary = producerService.send(kafkaRecords.iterator(), new PublishContext(TOPIC, null, null));
         assertNotNull(summary);
     }
 

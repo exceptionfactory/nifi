@@ -73,8 +73,10 @@ public class WrapperRecordTest {
         final List<KafkaHeader> kafkaHeaders = Arrays.asList(
                 new KafkaHeader("type", "business".getBytes(UTF_8)),
                 new KafkaHeader("color", "grey".getBytes(UTF_8)));
+
         final WrapperRecord wrapperRecord = new WrapperRecord(
-                recordMailingAddress, kafkaHeaders, UTF_8, STREET_ADDRESS, TOPIC, PARTITION, TIMESTAMP);
+                recordMailingAddress, STREET_ADDRESS,
+                kafkaHeaders, UTF_8, TOPIC, PARTITION, TIMESTAMP);
 
         final Record recordMetadata = wrapperRecord.getAsRecord(WrapperRecord.METADATA, WrapperRecord.SCHEMA_METADATA);
         assertNotNull(recordMetadata);

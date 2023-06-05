@@ -51,23 +51,23 @@ import java.util.Map;
 public class RecordStreamKafkaRecordConverter implements KafkaRecordConverter {
     private final RecordReaderFactory readerFactory;
     private final RecordSetWriterFactory writerFactory;
+    private final HeadersFactory headersFactory;
     private final KeyFactory keyFactory;
     private final int maxMessageSize;
-    private final HeadersFactory headersFactory;
     private final ComponentLog logger;
 
     public RecordStreamKafkaRecordConverter(
             final RecordReaderFactory readerFactory,
             final RecordSetWriterFactory writerFactory,
+            final HeadersFactory headersFactory,
             final KeyFactory keyFactory,
             final int maxMessageSize,
-            final HeadersFactory headersFactory,
             final ComponentLog logger) {
         this.readerFactory = readerFactory;
         this.writerFactory = writerFactory;
+        this.headersFactory = headersFactory;
         this.keyFactory = keyFactory;
         this.maxMessageSize = maxMessageSize;
-        this.headersFactory = headersFactory;
         this.logger = logger;
     }
 
@@ -111,10 +111,10 @@ public class RecordStreamKafkaRecordConverter implements KafkaRecordConverter {
             public KafkaRecord next() {
                 try {
                     final Record record = pushBackRecordSet.next();
-                    final byte[] recordKey = keyFactory.getKey(attributes);
-                    final byte[] recordValue = valueFactory.getValue(record);
-                    ProducerUtils.checkMessageSize(maxMessageSize, recordValue.length);
-                    return new KafkaRecord(recordKey, recordValue, headers);
+                    final byte[] key = keyFactory.getKey(attributes, record);
+                    final byte[] value = valueFactory.getValue(record);
+                    ProducerUtils.checkMessageSize(maxMessageSize, value.length);
+                    return new KafkaRecord(null, null, null, key, value, headers);
                 } catch (final IOException e) {
                     throw new UncheckedIOException(e);
                 }

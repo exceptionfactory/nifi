@@ -16,12 +16,14 @@
  */
 package org.apache.nifi.kafka.processors.producer.key;
 
-import java.io.UnsupportedEncodingException;
+import org.apache.nifi.serialization.record.Record;
+
+import java.io.IOException;
 import java.util.Map;
 
 /**
  * Implementations of converters from FlowFile data to Kafka record key.
  */
 public interface KeyFactory {
-    byte[] getKey(Map<String, String> attributes) throws UnsupportedEncodingException;
+    byte[] getKey(Map<String, String> attributes, Record record) throws IOException;
 }

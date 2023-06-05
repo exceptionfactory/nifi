@@ -50,8 +50,8 @@ public class WrapperRecord extends MapRecord {
     private static final RecordField FIELD_TIMESTAMP = new RecordField(TIMESTAMP, RecordFieldType.TIMESTAMP.getDataType());
     public static final RecordSchema SCHEMA_METADATA = new SimpleRecordSchema(Arrays.asList(FIELD_TOPIC, FIELD_PARTITION, FIELD_TIMESTAMP));
 
-    private static final RecordField FIELD_METADATA = new RecordField(METADATA, RecordFieldType.RECORD.getRecordDataType(SCHEMA_METADATA));
-    private static final RecordField FIELD_HEADERS = new RecordField(HEADERS, RecordFieldType.MAP.getMapDataType(RecordFieldType.STRING.getDataType()));
+    public static final RecordField FIELD_METADATA = new RecordField(METADATA, RecordFieldType.RECORD.getRecordDataType(SCHEMA_METADATA));
+    public static final RecordField FIELD_HEADERS = new RecordField(HEADERS, RecordFieldType.MAP.getMapDataType(RecordFieldType.STRING.getDataType()));
 
     private static RecordSchema toRecordSchema(final Record record, final String messageKeyField) {
         final Record recordKey = (Record) record.getValue(messageKeyField);
@@ -83,8 +83,9 @@ public class WrapperRecord extends MapRecord {
         return valuesWrapper;
     }
 
-    public WrapperRecord(final Record record, final List<KafkaHeader> headers, final Charset headerCharset,
-                         final String messageKeyField, final String topic, final int partition, final long timestamp) {
+    public WrapperRecord(final Record record, final String messageKeyField,
+                         final List<KafkaHeader> headers, final Charset headerCharset,
+                         final String topic, final int partition, final long timestamp) {
         super(toRecordSchema(record, messageKeyField),
                 toValues(record, headers, headerCharset, messageKeyField, topic, partition, timestamp));
     }
