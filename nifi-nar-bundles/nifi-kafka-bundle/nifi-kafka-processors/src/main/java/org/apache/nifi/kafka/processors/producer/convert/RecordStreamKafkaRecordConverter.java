@@ -21,7 +21,7 @@ import org.apache.nifi.kafka.processors.producer.header.HeadersFactory;
 import org.apache.nifi.kafka.processors.producer.key.KeyFactory;
 import org.apache.nifi.kafka.processors.producer.value.RecordValueFactory;
 import org.apache.nifi.kafka.processors.producer.value.ValueFactory;
-import org.apache.nifi.kafka.service.api.header.KafkaHeader;
+import org.apache.nifi.kafka.service.api.header.RecordHeader;
 import org.apache.nifi.kafka.service.api.record.KafkaRecord;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.schema.access.SchemaNotFoundException;
@@ -95,7 +95,7 @@ public class RecordStreamKafkaRecordConverter implements KafkaRecordConverter {
             final RecordSetWriter writer,
             final PushBackRecordSet pushBackRecordSet) throws IOException {
         final ValueFactory valueFactory = new RecordValueFactory(os, writer);
-        final List<KafkaHeader> headers = headersFactory.getHeaders(attributes);
+        final List<RecordHeader> headers = headersFactory.getHeaders(attributes);
 
         return new Iterator<>() {
             @Override

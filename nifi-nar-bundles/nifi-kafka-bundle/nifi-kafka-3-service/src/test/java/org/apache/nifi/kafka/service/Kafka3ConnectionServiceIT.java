@@ -24,11 +24,13 @@ import org.apache.kafka.common.KafkaFuture;
 import org.apache.nifi.components.ConfigVerificationResult;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.kafka.service.api.common.PartitionState;
+import org.apache.nifi.kafka.service.api.consumer.AutoOffsetReset;
 import org.apache.nifi.kafka.service.api.consumer.KafkaConsumerService;
 import org.apache.nifi.kafka.service.api.consumer.PollingContext;
 import org.apache.nifi.kafka.service.api.producer.KafkaProducerService;
 import org.apache.nifi.kafka.service.api.producer.ProducerConfiguration;
 import org.apache.nifi.kafka.service.api.producer.PublishContext;
+import org.apache.nifi.kafka.service.api.record.ByteRecord;
 import org.apache.nifi.kafka.service.api.record.KafkaRecord;
 import org.apache.nifi.kafka.service.api.record.RecordSummary;
 import org.apache.nifi.reporting.InitializationException;
@@ -45,17 +47,21 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class Kafka3ConnectionServiceIT {
     private static final String IMAGE_NAME = "confluentinc/cp-kafka:7.3.2";
@@ -71,6 +77,12 @@ public class Kafka3ConnectionServiceIT {
     private static final String UNREACHABLE_TIMEOUT = "1 s";
 
     private static final String TEST_RECORD_VALUE = "value-" + System.currentTimeMillis();
+
+    private static final byte[] RECORD_KEY = new byte[]{1};
+
+    private static final byte[] RECORD_VALUE = TEST_RECORD_VALUE.getBytes(StandardCharsets.UTF_8);
+
+    private static final int POLLING_ATTEMPTS = 3;
 
     private static KafkaContainer kafkaContainer;
 
@@ -91,7 +103,7 @@ public class Kafka3ConnectionServiceIT {
             final NewTopic newTopic = new NewTopic(TOPIC, numPartitions, replicationFactor);
             final CreateTopicsResult topics = adminClient.createTopics(Collections.singleton(newTopic));
             final KafkaFuture<Void> topicFuture = topics.values().get(TOPIC);
-            topicFuture.get(1, TimeUnit.SECONDS);
+            topicFuture.get(2, TimeUnit.SECONDS);
         }
     }
 
@@ -112,10 +124,44 @@ public class Kafka3ConnectionServiceIT {
     void testProduceOne() {
         runner.enableControllerService(service);
         final KafkaProducerService producerService = service.getProducerService(new ProducerConfiguration());
-        final KafkaRecord kafkaRecord = new KafkaRecord(null, null, null, null, TEST_RECORD_VALUE.getBytes(StandardCharsets.UTF_8), Collections.emptyList());
+        final KafkaRecord kafkaRecord = new KafkaRecord(null, null, null, null, RECORD_VALUE, Collections.emptyList());
         final List<KafkaRecord> kafkaRecords = Collections.singletonList(kafkaRecord);
         final RecordSummary summary = producerService.send(kafkaRecords.iterator(), new PublishContext(TOPIC, null, null));
         assertNotNull(summary);
+    }
+
+    @Test
+    void testProduceConsumeRecord() throws Exception {
+        runner.enableControllerService(service);
+
+        final KafkaProducerService producerService = service.getProducerService(new ProducerConfiguration());
+
+        final long timestamp = System.currentTimeMillis();
+        final KafkaRecord kafkaRecord = new KafkaRecord(null, null, timestamp, RECORD_KEY, RECORD_VALUE, Collections.emptyList());
+        final List<KafkaRecord> kafkaRecords = Collections.singletonList(kafkaRecord);
+        final RecordSummary summary = producerService.send(kafkaRecords.iterator(), new PublishContext(TOPIC, null, null));
+        assertNotNull(summary);
+
+        try (KafkaConsumerService consumerService = service.getConsumerService(null)) {
+            final PollingContext pollingContext = new PollingContext(GROUP_ID, Collections.singleton(TOPIC), AutoOffsetReset.EARLIEST);
+            final Iterator<ByteRecord> consumerRecords = poll(consumerService, pollingContext);
+
+            assertTrue(consumerRecords.hasNext(), "Consumer Records not found");
+
+            final ByteRecord consumerRecord = consumerRecords.next();
+            assertEquals(TOPIC, consumerRecord.getTopic());
+            assertEquals(0, consumerRecord.getOffset());
+            assertEquals(0, consumerRecord.getPartition());
+            assertEquals(timestamp, consumerRecord.getTimestamp());
+
+            final Optional<byte[]> keyFound = consumerRecord.getKey();
+            assertTrue(keyFound.isPresent());
+
+            assertArrayEquals(RECORD_KEY, keyFound.get());
+            assertArrayEquals(RECORD_VALUE, consumerRecord.getValue());
+
+            assertFalse(consumerRecords.hasNext());
+        }
     }
 
     @Test
@@ -166,7 +212,7 @@ public class Kafka3ConnectionServiceIT {
 
         final KafkaConsumerService consumerService = service.getConsumerService(null);
 
-        final PollingContext pollingContext = new PollingContext(GROUP_ID, Collections.singleton(TOPIC));
+        final PollingContext pollingContext = new PollingContext(GROUP_ID, Collections.singleton(TOPIC), AutoOffsetReset.EARLIEST);
 
         final List<PartitionState> partitionStates = consumerService.getPartitionStates(pollingContext);
         assertPartitionStatesFound(partitionStates);
@@ -177,5 +223,20 @@ public class Kafka3ConnectionServiceIT {
         final PartitionState partitionState = partitionStates.iterator().next();
         assertEquals(TOPIC, partitionState.getTopic());
         assertEquals(0, partitionState.getPartition());
+    }
+
+    private Iterator<ByteRecord> poll(final KafkaConsumerService consumerService, final PollingContext pollingContext) {
+        Iterator<ByteRecord> consumerRecords = Collections.emptyIterator();
+
+        for (int i = 0; i < POLLING_ATTEMPTS; i++) {
+            final Iterable<ByteRecord> records = consumerService.poll(pollingContext);
+            assertNotNull(records);
+            consumerRecords = records.iterator();
+            if (consumerRecords.hasNext()) {
+                break;
+            }
+        }
+
+        return consumerRecords;
     }
 }

@@ -16,7 +16,8 @@
  */
 package org.apache.nifi.kafka.service.consumer.pool;
 
-import java.util.Arrays;
+import org.apache.nifi.kafka.service.api.consumer.AutoOffsetReset;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Objects;
@@ -33,16 +34,20 @@ public class Subscription {
 
     private final Pattern topicPattern;
 
-    public Subscription(final String groupId, final Collection<String> topics) {
+    private final AutoOffsetReset autoOffsetReset;
+
+    public Subscription(final String groupId, final Collection<String> topics, final AutoOffsetReset autoOffsetReset) {
         this.groupId = Objects.requireNonNull(groupId, "Group ID required");
         this.topics = Collections.unmodifiableCollection(Objects.requireNonNull(topics, "Topics required"));
         this.topicPattern = null;
+        this.autoOffsetReset = Objects.requireNonNull(autoOffsetReset, "Auto Offset Reset required");
     }
 
-    public Subscription(final String groupId, final Pattern topicPattern) {
+    public Subscription(final String groupId, final Pattern topicPattern, final AutoOffsetReset autoOffsetReset) {
         this.groupId = Objects.requireNonNull(groupId, "Group ID required");
         this.topics = Collections.emptyList();
         this.topicPattern = Objects.requireNonNull(topicPattern, "Topic Patten required");
+        this.autoOffsetReset = Objects.requireNonNull(autoOffsetReset, "Auto Offset Reset required");
     }
 
     public String getGroupId() {
@@ -57,6 +62,10 @@ public class Subscription {
         return Optional.ofNullable(topicPattern);
     }
 
+    public AutoOffsetReset getAutoOffsetReset() {
+        return autoOffsetReset;
+    }
+
     @Override
     public boolean equals(final Object object) {
         final boolean equals;
@@ -66,8 +75,8 @@ public class Subscription {
         } else if (object instanceof Subscription) {
             final Subscription subscription = (Subscription) object;
             if (groupId.equals(subscription.groupId)) {
-                if (topics.equals(subscription.topics)) {
-                    equals = Objects.equals(topicPattern, subscription.topicPattern);
+                if (isTopicSubscriptionMatched(subscription)) {
+                    equals = autoOffsetReset == subscription.autoOffsetReset;
                 } else {
                     equals = false;
                 }
@@ -83,14 +92,27 @@ public class Subscription {
 
     @Override
     public int hashCode() {
-        final int hashCode;
+        return groupId.hashCode();
+    }
 
-        if (topicPattern == null) {
-            hashCode = Arrays.hashCode(new Object[]{groupId, topics});
+    @Override
+    public String toString() {
+        return String.format("Subscription Group ID [%s] Topics %s Topic Pattern [%s]", groupId, topics, topicPattern);
+    }
+
+    private boolean isTopicSubscriptionMatched(final Subscription subscription) {
+        final boolean matched;
+
+        if (topics.size() == subscription.topics.size()) {
+            if (topics.containsAll(subscription.topics)) {
+                matched = Objects.equals(topicPattern, subscription.topicPattern);
+            } else {
+                matched = false;
+            }
         } else {
-            hashCode = Arrays.hashCode(new Object[]{groupId, topics, topicPattern});
+            matched = false;
         }
 
-        return hashCode;
+        return matched;
     }
 }

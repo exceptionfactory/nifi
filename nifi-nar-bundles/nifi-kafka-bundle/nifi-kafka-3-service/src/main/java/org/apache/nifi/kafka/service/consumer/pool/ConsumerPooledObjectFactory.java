@@ -54,6 +54,7 @@ class ConsumerPooledObjectFactory extends BaseKeyedPooledObjectFactory<Subscript
         final Properties properties = new Properties();
         properties.putAll(consumerProperties);
         properties.put(ConsumerConfig.GROUP_ID_CONFIG, subscription.getGroupId());
+        properties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, subscription.getAutoOffsetReset().getValue());
 
         final Consumer<byte[], byte[]> consumer = consumerFactory.newConsumer(properties);
 

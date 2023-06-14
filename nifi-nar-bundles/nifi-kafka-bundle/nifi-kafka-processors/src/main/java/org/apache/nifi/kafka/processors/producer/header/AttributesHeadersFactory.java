@@ -16,7 +16,7 @@
  */
 package org.apache.nifi.kafka.processors.producer.header;
 
-import org.apache.nifi.kafka.service.api.header.KafkaHeader;
+import org.apache.nifi.kafka.service.api.header.RecordHeader;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -37,12 +37,12 @@ public class AttributesHeadersFactory implements HeadersFactory {
         this.messageHeaderCharset = messageHeaderCharset;
     }
 
-    public List<KafkaHeader> getHeaders(final Map<String, String> attributes) throws IOException {
-        final List<KafkaHeader> headers = new ArrayList<>();
+    public List<RecordHeader> getHeaders(final Map<String, String> attributes) throws IOException {
+        final List<RecordHeader> headers = new ArrayList<>();
         if (attributeNameRegex != null) {
             for (final Map.Entry<String, String> entry : attributes.entrySet()) {
                 if (attributeNameRegex.matcher(entry.getKey()).matches()) {
-                    headers.add(new KafkaHeader(entry.getKey(), entry.getValue().getBytes(messageHeaderCharset)));
+                    headers.add(new RecordHeader(entry.getKey(), entry.getValue().getBytes(messageHeaderCharset)));
                 }
             }
         }

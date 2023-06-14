@@ -55,7 +55,7 @@ public class Kafka3ProducerService implements KafkaProducerService {
     private ProducerRecord<byte[], byte[]> toProducerRecord(final KafkaRecord kafkaRecord, final PublishContext publishContext) {
         final String topic = Optional.ofNullable(kafkaRecord.getTopic()).orElse(publishContext.getTopic());
         final Integer partition = Optional.ofNullable(kafkaRecord.getPartition()).orElse(publishContext.getPartition());
-        return new ProducerRecord<>(topic, partition, kafkaRecord.getKey(), kafkaRecord.getValue(), toKafkaHeadersNative(kafkaRecord));
+        return new ProducerRecord<>(topic, partition, kafkaRecord.getTimestamp(), kafkaRecord.getKey(), kafkaRecord.getValue(), toKafkaHeadersNative(kafkaRecord));
     }
 
     @Override

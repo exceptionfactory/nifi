@@ -16,7 +16,7 @@
  */
 package org.apache.nifi.kafka.processors.producer.wrapper;
 
-import org.apache.nifi.kafka.service.api.header.KafkaHeader;
+import org.apache.nifi.kafka.service.api.header.RecordHeader;
 import org.apache.nifi.serialization.SimpleRecordSchema;
 import org.apache.nifi.serialization.record.MapRecord;
 import org.apache.nifi.serialization.record.Record;
@@ -70,9 +70,9 @@ public class WrapperRecordTest {
         valuesMailingAddress.put(ZIP, "10000");
         final Record recordMailingAddress = new MapRecord(schemaMailingAddress, valuesMailingAddress);
 
-        final List<KafkaHeader> kafkaHeaders = Arrays.asList(
-                new KafkaHeader("type", "business".getBytes(UTF_8)),
-                new KafkaHeader("color", "grey".getBytes(UTF_8)));
+        final List<RecordHeader> kafkaHeaders = Arrays.asList(
+                new RecordHeader("type", "business".getBytes(UTF_8)),
+                new RecordHeader("color", "grey".getBytes(UTF_8)));
 
         final WrapperRecord wrapperRecord = new WrapperRecord(
                 recordMailingAddress, STREET_ADDRESS,
