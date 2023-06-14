@@ -22,11 +22,30 @@ import org.apache.nifi.kafka.service.api.record.RecordSummary;
 
 import java.util.List;
 
-public interface KafkaConsumerService {
-
+/**
+ * Kafka Consumer Service must be closed to avoid leaking connection resources
+ */
+public interface KafkaConsumerService extends AutoCloseable {
+    /**
+     * Commit record information to Kafka Brokers
+     *
+     * @param recordSummary Record Summary information to be committed
+     */
     void commit(RecordSummary recordSummary);
 
+    /**
+     * Poll Subscriptions for Records
+     *
+     * @param pollingContext Polling Context containing subscription information
+     * @return Stream of Records or empty when none returned
+     */
     Iterable<ByteRecord> poll(PollingContext pollingContext);
 
+    /**
+     * Get Partition State information for subscription
+     *
+     * @param pollingContext Polling Context containing subscription information
+     * @return List of Partition State information
+     */
     List<PartitionState> getPartitionStates(PollingContext pollingContext);
 }

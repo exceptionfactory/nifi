@@ -16,7 +16,7 @@
  */
 package org.apache.nifi.kafka.service.api.record;
 
-import org.apache.nifi.kafka.service.api.header.KafkaHeader;
+import org.apache.nifi.kafka.service.api.header.RecordHeader;
 
 import java.util.List;
 
@@ -27,13 +27,19 @@ import java.util.List;
 public class KafkaRecord {
     private final String topic;
     private final Integer partition;
-    private final List<KafkaHeader> headers;
+    private final List<RecordHeader> headers;
     private final byte[] key;
     private final byte[] value;
     private final Long timestamp;
 
-    public KafkaRecord(final String topic, final Integer partition, final Long timestamp,
-                       final byte[] key, final byte[] value, final List<KafkaHeader> headers) {
+    public KafkaRecord(
+            final String topic,
+            final Integer partition,
+            final Long timestamp,
+            final byte[] key,
+            final byte[] value,
+            final List<RecordHeader> headers
+    ) {
         this.topic = topic;
         this.partition = partition;
         this.timestamp = timestamp;
@@ -50,7 +56,7 @@ public class KafkaRecord {
         return partition;
     }
 
-    public List<KafkaHeader> getHeaders() {
+    public List<RecordHeader> getHeaders() {
         return headers;
     }
 

@@ -16,5 +16,69 @@
  */
 package org.apache.nifi.kafka.service.api.record;
 
+import org.apache.nifi.kafka.service.api.header.RecordHeader;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+/**
+ * Byte Record translation of Kafka Record with byte arrays for key and value properties
+ */
 public class ByteRecord {
+    private final String topic;
+
+    private final int partition;
+
+    private final long offset;
+
+    private final long timestamp;
+
+    private final List<RecordHeader> headers;
+
+    private final byte[] key;
+
+    private final byte[] value;
+
+    public ByteRecord(
+            final String topic,
+            final int partition,
+            final long offset,
+            final long timestamp,
+            final List<RecordHeader> headers,
+            final byte[] key,
+            final byte[] value
+    ) {
+        this.topic = Objects.requireNonNull(topic, "Topic required");
+        this.partition = partition;
+        this.offset = offset;
+        this.timestamp = timestamp;
+        this.headers = Objects.requireNonNull(headers, "Headers required");
+        this.key = key;
+        this.value = Objects.requireNonNull(value, "Value required");
+    }
+
+    public String getTopic() {
+        return topic;
+    }
+
+    public int getPartition() {
+        return partition;
+    }
+
+    public long getOffset() {
+        return offset;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
+    }
+
+    public Optional<byte[]> getKey() {
+        return Optional.ofNullable(key);
+    }
+
+    public byte[] getValue() {
+        return value;
+    }
 }

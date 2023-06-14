@@ -16,11 +16,14 @@
  */
 package org.apache.nifi.kafka.service.api.header;
 
-public class KafkaHeader {
+/**
+ * Representation of Kafka Record Header
+ */
+public class RecordHeader {
     private final String key;
     private final byte[] value;
 
-    public KafkaHeader(final String key, final byte[] value) {
+    public RecordHeader(final String key, final byte[] value) {
         this.key = key;
         this.value = value;
     }

@@ -17,16 +17,21 @@
 package org.apache.nifi.kafka.service.consumer;
 
 import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.nifi.kafka.service.api.common.PartitionState;
+import org.apache.nifi.kafka.service.api.consumer.AutoOffsetReset;
 import org.apache.nifi.kafka.service.api.consumer.KafkaConsumerService;
 import org.apache.nifi.kafka.service.api.consumer.PollingContext;
+import org.apache.nifi.kafka.service.api.header.RecordHeader;
 import org.apache.nifi.kafka.service.api.record.ByteRecord;
 import org.apache.nifi.kafka.service.api.record.RecordSummary;
 import org.apache.nifi.kafka.service.consumer.pool.ConsumerObjectPool;
 import org.apache.nifi.kafka.service.consumer.pool.Subscription;
 import org.apache.nifi.logging.ComponentLog;
 
-import java.io.Closeable;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -37,7 +42,12 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-public class Kafka3ConsumerService implements KafkaConsumerService, Closeable {
+/**
+ * Kafka 3 Consumer Service implementation with Object Pooling for subscribed Kafka Consumers
+ */
+public class Kafka3ConsumerService implements KafkaConsumerService {
+    private static final Duration POLL_TIMEOUT = Duration.ofMillis(100);
+
     private final ComponentLog componentLog;
 
     private final ConsumerObjectPool consumerObjectPool;
@@ -48,23 +58,24 @@ public class Kafka3ConsumerService implements KafkaConsumerService, Closeable {
     }
 
     @Override
-    public void commit(RecordSummary recordSummary) {
+    public void commit(final RecordSummary recordSummary) {
+        Objects.requireNonNull(recordSummary, "Record Summary required");
     }
 
     @Override
-    public Iterable<ByteRecord> poll(PollingContext pollingContext) {
-        return null;
+    public Iterable<ByteRecord> poll(final PollingContext pollingContext) {
+        Objects.requireNonNull(pollingContext, "Polling Context required");
+        final Subscription subscription = getSubscription(pollingContext);
+
+        return runConsumerFunction(subscription, (consumer) -> {
+            final ConsumerRecords<byte[], byte[]> consumerRecords = consumer.poll(POLL_TIMEOUT);
+            return new RecordIterable(consumerRecords);
+        });
     }
 
     @Override
     public List<PartitionState> getPartitionStates(final PollingContext pollingContext) {
-        final String groupId = pollingContext.getGroupId();
-        final Optional<Pattern> topicPatternFound = pollingContext.getTopicPattern();
-
-        final Subscription subscription = topicPatternFound
-                .map(pattern -> new Subscription(groupId, pattern))
-                .orElseGet(() -> new Subscription(groupId, pollingContext.getTopics()));
-
+        final Subscription subscription = getSubscription(pollingContext);
         final Iterator<String> topics = subscription.getTopics().iterator();
 
         final List<PartitionState> partitionStates;
@@ -89,6 +100,16 @@ public class Kafka3ConsumerService implements KafkaConsumerService, Closeable {
         consumerObjectPool.close();
     }
 
+    private Subscription getSubscription(final PollingContext pollingContext) {
+        final String groupId = pollingContext.getGroupId();
+        final Optional<Pattern> topicPatternFound = pollingContext.getTopicPattern();
+        final AutoOffsetReset autoOffsetReset = pollingContext.getAutoOffsetReset();
+
+        return topicPatternFound
+                .map(pattern -> new Subscription(groupId, pattern, autoOffsetReset))
+                .orElseGet(() -> new Subscription(groupId, pollingContext.getTopics(), autoOffsetReset));
+    }
+
     private <T> T runConsumerFunction(final Subscription subscription, final Function<Consumer<byte[], byte[]>, T> consumerFunction) {
         Consumer<byte[], byte[]> consumer = null;
         try {
@@ -104,6 +125,51 @@ public class Kafka3ConsumerService implements KafkaConsumerService, Closeable {
                     componentLog.warn("Return Consumer failed", e);
                 }
             }
+        }
+    }
+
+    private static class RecordIterable implements Iterable<ByteRecord> {
+        private final Iterator<ByteRecord> records;
+
+        private RecordIterable(final Iterable<ConsumerRecord<byte[], byte[]>> consumerRecords) {
+            this.records = new RecordIterator(consumerRecords);
+        }
+
+        @Override
+        public Iterator<ByteRecord> iterator() {
+            return records;
+        }
+    }
+
+    private static class RecordIterator implements Iterator<ByteRecord> {
+        private final Iterator<ConsumerRecord<byte[], byte[]>> consumerRecords;
+
+        private RecordIterator(final Iterable<ConsumerRecord<byte[], byte[]>> records) {
+            this.consumerRecords = records.iterator();
+        }
+
+        @Override
+        public boolean hasNext() {
+            return consumerRecords.hasNext();
+        }
+
+        @Override
+        public ByteRecord next() {
+            final ConsumerRecord<byte[], byte[]> consumerRecord = consumerRecords.next();
+            final List<RecordHeader> recordHeaders = new ArrayList<>();
+            consumerRecord.headers().forEach(header -> {
+                final RecordHeader recordHeader = new RecordHeader(header.key(), header.value());
+                recordHeaders.add(recordHeader);
+            });
+            return new ByteRecord(
+                    consumerRecord.topic(),
+                    consumerRecord.partition(),
+                    consumerRecord.offset(),
+                    consumerRecord.timestamp(),
+                    recordHeaders,
+                    consumerRecord.key(),
+                    consumerRecord.value()
+            );
         }
     }
 }

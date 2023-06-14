@@ -16,7 +16,7 @@
  */
 package org.apache.nifi.kafka.processors.producer.wrapper;
 
-import org.apache.nifi.kafka.service.api.header.KafkaHeader;
+import org.apache.nifi.kafka.service.api.header.RecordHeader;
 import org.apache.nifi.serialization.SimpleRecordSchema;
 import org.apache.nifi.serialization.record.MapRecord;
 import org.apache.nifi.serialization.record.Record;
@@ -62,7 +62,7 @@ public class WrapperRecord extends MapRecord {
     }
 
     private static Map<String, Object> toValues(
-            final Record record, final List<KafkaHeader> headers, final Charset headerCharset,
+            final Record record, final List<RecordHeader> headers, final Charset headerCharset,
             final String messageKeyField, final String topic, final int partition, final long timestamp) {
         final Map<String, Object> valuesMetadata = new HashMap<>();
         valuesMetadata.put(TOPIC, topic);
@@ -71,7 +71,7 @@ public class WrapperRecord extends MapRecord {
         final Record recordMetadata = new MapRecord(SCHEMA_METADATA, valuesMetadata);
 
         final Map<String, Object> valuesHeaders = new HashMap<>();
-        for (KafkaHeader header : headers) {
+        for (RecordHeader header : headers) {
             valuesHeaders.put(header.key(), new String(header.value(), headerCharset));
         }
 
@@ -84,7 +84,7 @@ public class WrapperRecord extends MapRecord {
     }
 
     public WrapperRecord(final Record record, final String messageKeyField,
-                         final List<KafkaHeader> headers, final Charset headerCharset,
+                         final List<RecordHeader> headers, final Charset headerCharset,
                          final String topic, final int partition, final long timestamp) {
         super(toRecordSchema(record, messageKeyField),
                 toValues(record, headers, headerCharset, messageKeyField, topic, partition, timestamp));

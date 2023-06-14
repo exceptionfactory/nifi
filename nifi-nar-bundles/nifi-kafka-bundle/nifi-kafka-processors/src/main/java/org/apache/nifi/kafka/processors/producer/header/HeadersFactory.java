@@ -16,7 +16,7 @@
  */
 package org.apache.nifi.kafka.processors.producer.header;
 
-import org.apache.nifi.kafka.service.api.header.KafkaHeader;
+import org.apache.nifi.kafka.service.api.header.RecordHeader;
 
 import java.io.IOException;
 import java.util.List;
@@ -27,5 +27,5 @@ import java.util.Map;
  */
 public interface HeadersFactory {
 
-    List<KafkaHeader> getHeaders(Map<String, String> attributes) throws IOException;
+    List<RecordHeader> getHeaders(Map<String, String> attributes) throws IOException;
 }

@@ -19,6 +19,7 @@ package org.apache.nifi.kafka.service.consumer.pool;
 import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.nifi.kafka.service.api.consumer.AutoOffsetReset;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -58,7 +59,7 @@ class ConsumerPooledObjectFactoryTest {
     @Test
     void testCreate() {
         final Collection<String> topics = Collections.singleton(TOPIC);
-        final Subscription subscription = new Subscription(GROUP_ID, topics);
+        final Subscription subscription = new Subscription(GROUP_ID, topics, AutoOffsetReset.EARLIEST);
 
         when(consumerFactory.newConsumer(any(Properties.class))).thenReturn(mockConsumer);
         final Consumer<byte[], byte[]> consumer = factory.create(subscription);
@@ -79,7 +80,7 @@ class ConsumerPooledObjectFactoryTest {
     void testDestroyObject() {
         final PooledObject<Consumer<byte[], byte[]>> pooledObject = new DefaultPooledObject<>(mockConsumer);
 
-        final Subscription subscription = new Subscription(GROUP_ID, Collections.singleton(TOPIC));
+        final Subscription subscription = new Subscription(GROUP_ID, Collections.singleton(TOPIC), AutoOffsetReset.EARLIEST);
         factory.destroyObject(subscription, pooledObject);
 
         verify(mockConsumer).close();

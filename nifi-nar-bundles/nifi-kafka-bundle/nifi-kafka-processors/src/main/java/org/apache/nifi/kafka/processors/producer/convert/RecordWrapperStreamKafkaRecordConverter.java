@@ -21,7 +21,7 @@ import org.apache.nifi.kafka.processors.producer.common.ProducerUtils;
 import org.apache.nifi.kafka.processors.producer.wrapper.RecordFieldConverter;
 import org.apache.nifi.kafka.processors.producer.wrapper.RecordMetadataStrategy;
 import org.apache.nifi.kafka.processors.producer.wrapper.WrapperRecord;
-import org.apache.nifi.kafka.service.api.header.KafkaHeader;
+import org.apache.nifi.kafka.service.api.header.RecordHeader;
 import org.apache.nifi.kafka.service.api.record.KafkaRecord;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.schema.access.SchemaNotFoundException;
@@ -109,7 +109,7 @@ public class RecordWrapperStreamKafkaRecordConverter implements KafkaRecordConve
                     final byte[] value = converter.toBytes(WrapperRecord.VALUE, writerFactory);
                     ProducerUtils.checkMessageSize(maxMessageSize, value.length);
 
-                    final List<KafkaHeader> headers = getKafkaHeaders(record);
+                    final List<RecordHeader> headers = getKafkaHeaders(record);
 
                     // wrapper record may specify custom topic / partition
                     String topic = null;
@@ -126,12 +126,12 @@ public class RecordWrapperStreamKafkaRecordConverter implements KafkaRecordConve
                 }
             }
 
-            private List<KafkaHeader> getKafkaHeaders(final Record record) {
-                final List<KafkaHeader> headers = new ArrayList<>();
+            private List<RecordHeader> getKafkaHeaders(final Record record) {
+                final List<RecordHeader> headers = new ArrayList<>();
                 final MapRecord headersRecord = (MapRecord) record.getValue(WrapperRecord.HEADERS);
                 if (headersRecord != null) {
                     headersRecord.toMap().forEach((key, value) -> headers.add(
-                            new KafkaHeader(key, value.toString().getBytes(StandardCharsets.UTF_8))));
+                            new RecordHeader(key, value.toString().getBytes(StandardCharsets.UTF_8))));
                 }
                 return headers;
             }
