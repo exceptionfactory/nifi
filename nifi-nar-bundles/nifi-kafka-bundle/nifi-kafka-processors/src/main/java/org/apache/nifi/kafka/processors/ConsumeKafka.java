@@ -22,6 +22,7 @@ import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.expression.ExpressionLanguageScope;
 import org.apache.nifi.kafka.service.api.KafkaConnectionService;
 import org.apache.nifi.kafka.service.api.common.PartitionState;
+import org.apache.nifi.kafka.service.api.consumer.AutoOffsetReset;
 import org.apache.nifi.kafka.service.api.consumer.ConsumerConfiguration;
 import org.apache.nifi.kafka.service.api.consumer.KafkaConsumerService;
 import org.apache.nifi.kafka.service.api.consumer.PollingContext;
@@ -99,7 +100,7 @@ public class ConsumeKafka extends AbstractProcessor implements VerifiableProcess
         final String groupId = context.getProperty(GROUP_ID).evaluateAttributeExpressions(attributes).getValue();
         final String topicName = context.getProperty(TOPIC_NAME).evaluateAttributeExpressions(attributes).getValue();
 
-        final PollingContext pollingContext = new PollingContext(groupId, Collections.singleton(topicName));
+        final PollingContext pollingContext = new PollingContext(groupId, Collections.singleton(topicName), AutoOffsetReset.LATEST);
         try {
             final List<PartitionState> partitionStates = consumerService.getPartitionStates(pollingContext);
             verificationPartitions
