@@ -21,6 +21,9 @@ import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.ListTopicsResult;
 import org.apache.kafka.clients.admin.TopicListing;
 import org.apache.kafka.common.KafkaFuture;
+import org.apache.kafka.common.config.SaslConfigs;
+import org.apache.kafka.common.security.auth.SecurityProtocol;
+import org.apache.kafka.common.security.plain.PlainLoginModule;
 import org.apache.nifi.annotation.lifecycle.OnDisabled;
 import org.apache.nifi.annotation.lifecycle.OnEnabled;
 import org.apache.nifi.components.ConfigVerificationResult;
@@ -37,6 +40,7 @@ import org.apache.nifi.kafka.service.api.producer.KafkaProducerService;
 import org.apache.nifi.kafka.service.api.producer.ProducerConfiguration;
 import org.apache.nifi.kafka.service.consumer.Kafka3ConsumerService;
 import org.apache.nifi.kafka.service.producer.Kafka3ProducerService;
+import org.apache.nifi.kafka.shared.property.SaslMechanism;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.processor.util.StandardValidators;
 
@@ -64,6 +68,57 @@ public class Kafka3ConnectionService extends AbstractControllerService implement
             .expressionLanguageSupported(ExpressionLanguageScope.NONE)
             .build();
 
+    public static final PropertyDescriptor SECURITY_PROTOCOL = new PropertyDescriptor.Builder()
+            .name("security.protocol")
+            .displayName("Security Protocol")
+            .description("Security protocol used to communicate with brokers. Corresponds to Kafka Client security.protocol property")
+            .required(true)
+            .expressionLanguageSupported(ExpressionLanguageScope.NONE)
+            .allowableValues(SecurityProtocol.values())
+            .defaultValue(SecurityProtocol.PLAINTEXT.name())
+            .build();
+
+    public static final PropertyDescriptor SASL_MECHANISM = new PropertyDescriptor.Builder()
+            .name("sasl.mechanism")
+            .displayName("SASL Mechanism")
+            .description("SASL mechanism used for authentication. Corresponds to Kafka Client sasl.mechanism property")
+            .required(true)
+            .expressionLanguageSupported(ExpressionLanguageScope.NONE)
+            .allowableValues(SaslMechanism.getAvailableSaslMechanisms())
+            .defaultValue(SaslMechanism.GSSAPI.getValue())
+            .build();
+
+    public static final PropertyDescriptor SASL_USERNAME = new PropertyDescriptor.Builder()
+            .name("sasl.username")
+            .displayName("Username")
+            .description("Username provided with configured password when using PLAIN or SCRAM SASL Mechanisms")
+            .required(false)
+            .addValidator(StandardValidators.NON_BLANK_VALIDATOR)
+            .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
+            .dependsOn(
+                    SASL_MECHANISM,
+                    SaslMechanism.PLAIN.getValue(),
+                    SaslMechanism.SCRAM_SHA_256.getValue(),
+                    SaslMechanism.SCRAM_SHA_512.getValue()
+            )
+            .build();
+
+    public static final PropertyDescriptor SASL_PASSWORD = new PropertyDescriptor.Builder()
+            .name("sasl.password")
+            .displayName("Password")
+            .description("Password provided with configured username when using PLAIN or SCRAM SASL Mechanisms")
+            .required(false)
+            .sensitive(true)
+            .addValidator(StandardValidators.NON_BLANK_VALIDATOR)
+            .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
+            .dependsOn(
+                    SASL_MECHANISM,
+                    SaslMechanism.PLAIN.getValue(),
+                    SaslMechanism.SCRAM_SHA_256.getValue(),
+                    SaslMechanism.SCRAM_SHA_512.getValue()
+            )
+            .build();
+
     public static final PropertyDescriptor CLIENT_TIMEOUT = new PropertyDescriptor.Builder()
             .name("default.api.timeout.ms")
             .displayName("Client Timeout")
@@ -77,6 +132,10 @@ public class Kafka3ConnectionService extends AbstractControllerService implement
 
     private static final List<PropertyDescriptor> PROPERTY_DESCRIPTORS = Collections.unmodifiableList(Arrays.asList(
             BOOTSTRAP_SERVERS,
+            SECURITY_PROTOCOL,
+            SASL_MECHANISM,
+            SASL_USERNAME,
+            SASL_PASSWORD,
             CLIENT_TIMEOUT
     ));
 
@@ -157,6 +216,21 @@ public class Kafka3ConnectionService extends AbstractControllerService implement
 
         final String configuredBootstrapServers = propertyContext.getProperty(BOOTSTRAP_SERVERS).getValue();
         properties.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, configuredBootstrapServers);
+
+        final String securityProtocol = propertyContext.getProperty(SECURITY_PROTOCOL).getValue();
+        properties.put(AdminClientConfig.SECURITY_PROTOCOL_CONFIG, securityProtocol);
+
+        final String saslMechanism = propertyContext.getProperty(SASL_MECHANISM).getValue();
+        properties.put(SaslConfigs.SASL_MECHANISM, saslMechanism);
+
+        final String saslUsername = propertyContext.getProperty(SASL_USERNAME).getValue();
+        final String saslPassword = propertyContext.getProperty(SASL_PASSWORD).getValue();
+
+        if ((saslUsername != null) && (saslPassword != null)) {
+            properties.put(SaslConfigs.SASL_JAAS_CONFIG, String.format(
+                    "%s required username=\"%s\" password=\"%s\";",
+                    PlainLoginModule.class.getName(), saslUsername, saslPassword));
+        }
 
         final int defaultApiTimeoutMs = getDefaultApiTimeoutMs(propertyContext);
         properties.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, defaultApiTimeoutMs);

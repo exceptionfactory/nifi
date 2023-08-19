@@ -37,13 +37,13 @@ import java.util.Map;
 import java.util.Properties;
 
 public abstract class PublishKafkaBaseIT {
-    protected static final String IMAGE_NAME = "confluentinc/cp-kafka:7.3.2";
+    public static final String IMAGE_NAME = "confluentinc/cp-kafka:7.3.2";
 
     protected static final long TIMESTAMP = System.currentTimeMillis();
 
     protected static final String SERVICE_ID = Kafka3ConnectionService.class.getSimpleName();
 
-    protected static final Duration DURATION_POLL = Duration.ofMillis(1000L);
+    public static final Duration DURATION_POLL = Duration.ofMillis(1000L);
 
     protected static final KafkaContainer kafka;
 
