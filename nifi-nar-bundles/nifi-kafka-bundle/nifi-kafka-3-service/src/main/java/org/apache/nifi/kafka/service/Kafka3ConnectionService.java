@@ -94,7 +94,7 @@ public class Kafka3ConnectionService extends AbstractControllerService implement
             .description("Username provided with configured password when using PLAIN or SCRAM SASL Mechanisms")
             .required(false)
             .addValidator(StandardValidators.NON_BLANK_VALIDATOR)
-            .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
+            .expressionLanguageSupported(ExpressionLanguageScope.ENVIRONMENT)
             .dependsOn(
                     SASL_MECHANISM,
                     SaslMechanism.PLAIN.getValue(),
@@ -110,7 +110,7 @@ public class Kafka3ConnectionService extends AbstractControllerService implement
             .required(false)
             .sensitive(true)
             .addValidator(StandardValidators.NON_BLANK_VALIDATOR)
-            .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
+            .expressionLanguageSupported(ExpressionLanguageScope.ENVIRONMENT)
             .dependsOn(
                     SASL_MECHANISM,
                     SaslMechanism.PLAIN.getValue(),

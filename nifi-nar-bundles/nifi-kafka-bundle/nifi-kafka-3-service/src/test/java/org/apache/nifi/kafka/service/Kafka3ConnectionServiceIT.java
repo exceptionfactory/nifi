@@ -168,7 +168,7 @@ public class Kafka3ConnectionServiceIT {
     void testVerifySuccessful() {
         final Map<PropertyDescriptor, String> properties = new LinkedHashMap<>();
         properties.put(Kafka3ConnectionService.BOOTSTRAP_SERVERS, kafkaContainer.getBootstrapServers());
-        final MockConfigurationContext configurationContext = new MockConfigurationContext(properties, null);
+        final MockConfigurationContext configurationContext = new MockConfigurationContext(properties, null, null);
 
         final List<ConfigVerificationResult> results = service.verify(configurationContext, runner.getLogger(), Collections.emptyMap());
 
@@ -185,7 +185,7 @@ public class Kafka3ConnectionServiceIT {
         properties.put(Kafka3ConnectionService.BOOTSTRAP_SERVERS, UNREACHABLE_BOOTSTRAP_SERVERS);
         properties.put(Kafka3ConnectionService.CLIENT_TIMEOUT, UNREACHABLE_TIMEOUT);
 
-        final MockConfigurationContext configurationContext = new MockConfigurationContext(properties, null);
+        final MockConfigurationContext configurationContext = new MockConfigurationContext(properties, null, null);
 
         final List<ConfigVerificationResult> results = service.verify(configurationContext, runner.getLogger(), Collections.emptyMap());
 
