@@ -34,6 +34,7 @@ import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
@@ -50,6 +51,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+@Disabled("circle back to this")
 @TestMethodOrder(MethodOrderer.MethodName.class)
 public class PublishKafkaAuthSaslPlaintextIT {
     private static final String SERVICE_ID = Kafka3ConnectionService.class.getSimpleName();
@@ -70,6 +72,12 @@ public class PublishKafkaAuthSaslPlaintextIT {
 
     /**
      * Environment to be provided to docker container to enable SASL authentication.
+     * <p>
+     * Disable this test for now:
+     * <ul>
+     * <li><a href="https://github.com/testcontainers/testcontainers-java/issues/3899">Kafka SASL mechanism</a></li>
+     * <li><a href="https://github.com/testcontainers/testcontainers-java/issues/6423">Kafka SASL mechanism</a></li>
+     * </ul>
      */
     private static Map<String, String> getEnvironmentSaslPlaintext() {
         final Map<String, String> environment = new LinkedHashMap<>();

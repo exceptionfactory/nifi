@@ -25,6 +25,7 @@ import org.apache.kafka.common.header.internals.RecordHeader;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.nifi.kafka.service.api.common.PartitionState;
 import org.apache.nifi.kafka.service.api.producer.KafkaProducerService;
+import org.apache.nifi.kafka.service.api.producer.ProducerConfiguration;
 import org.apache.nifi.kafka.service.api.producer.PublishContext;
 import org.apache.nifi.kafka.service.api.record.KafkaRecord;
 import org.apache.nifi.kafka.service.api.record.RecordSummary;
@@ -37,14 +38,39 @@ import java.util.stream.Collectors;
 
 public class Kafka3ProducerService implements KafkaProducerService {
     private final Producer<byte[], byte[]> producer;
+    private final ProducerConfiguration producerConfiguration;
 
-    public Kafka3ProducerService(final Properties properties) {
+    public Kafka3ProducerService(final Properties properties, final ProducerConfiguration producerConfiguration) {
         final ByteArraySerializer serializer = new ByteArraySerializer();
         this.producer = new KafkaProducer<>(properties, serializer, serializer);
+        this.producerConfiguration = producerConfiguration;
+        if (producerConfiguration.getUseTransactions()) {
+            producer.initTransactions();
+        }
     }
 
     @Override
     public RecordSummary send(final Iterator<KafkaRecord> kafkaRecords, final PublishContext publishContext) {
+        return producerConfiguration.getUseTransactions()
+                ? sendTransaction(kafkaRecords, publishContext)
+                : sendNoTransaction(kafkaRecords, publishContext);
+    }
+
+    private RecordSummary sendTransaction(final Iterator<KafkaRecord> kafkaRecords, final PublishContext publishContext) {
+        try {
+            producer.beginTransaction();
+            while (kafkaRecords.hasNext()) {
+                final KafkaRecord kafkaRecord = kafkaRecords.next();
+                producer.send(toProducerRecord(kafkaRecord, publishContext));
+            }
+            producer.commitTransaction();
+        } catch (final Exception e) {
+            producer.abortTransaction();
+        }
+        return new RecordSummary();
+    }
+
+    private RecordSummary sendNoTransaction(final Iterator<KafkaRecord> kafkaRecords, final PublishContext publishContext) {
         while (kafkaRecords.hasNext()) {
             final KafkaRecord kafkaRecord = kafkaRecords.next();
             producer.send(toProducerRecord(kafkaRecord, publishContext));
@@ -66,7 +92,7 @@ public class Kafka3ProducerService implements KafkaProducerService {
                 .collect(Collectors.toList());
     }
 
-    public List<Header> toKafkaHeadersNative(final KafkaRecord kafkaRecord) {
+    private List<Header> toKafkaHeadersNative(final KafkaRecord kafkaRecord) {
         return kafkaRecord.getHeaders().stream()
                 .map(h -> new RecordHeader(h.key(), h.value()))
                 .collect(Collectors.toList());

@@ -40,8 +40,10 @@ import org.apache.nifi.kafka.service.api.producer.KafkaProducerService;
 import org.apache.nifi.kafka.service.api.producer.ProducerConfiguration;
 import org.apache.nifi.kafka.service.api.producer.PublishContext;
 import org.apache.nifi.kafka.service.api.record.KafkaRecord;
+import org.apache.nifi.kafka.service.api.record.RecordSummary;
 import org.apache.nifi.kafka.shared.attribute.KafkaFlowFileAttribute;
 import org.apache.nifi.kafka.shared.property.PublishStrategy;
+import org.apache.nifi.kafka.shared.transaction.TransactionIdSupplier;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.processor.AbstractProcessor;
 import org.apache.nifi.processor.DataUnit;
@@ -68,6 +70,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 @Tags({"kafka", "producer", "record"})
@@ -181,6 +184,28 @@ public class PublishKafka extends AbstractProcessor implements VerifiableProcess
             .required(false)
             .build();
 
+    static final PropertyDescriptor USE_TRANSACTIONS = new PropertyDescriptor.Builder()
+            .name("use-transactions")
+            .displayName("Use Transactions")
+            .description("Specifies whether or not NiFi should provide Transactional guarantees when communicating with Kafka. If there is a problem sending data to Kafka, "
+                    + "and this property is set to false, then the messages that have already been sent to Kafka will continue on and be delivered to consumers. "
+                    + "If this is set to true, then the Kafka transaction will be rolled back so that those messages are not available to consumers. Setting this to true "
+                    + "requires that the <Delivery Guarantee> property be set to \"Guarantee Replicated Delivery.\"")
+            .expressionLanguageSupported(ExpressionLanguageScope.NONE)
+            .allowableValues("true", "false")
+            .defaultValue("true")
+            .required(true)
+            .build();
+    static final PropertyDescriptor TRANSACTIONAL_ID_PREFIX = new PropertyDescriptor.Builder()
+            .name("transactional-id-prefix")
+            .displayName("Transactional Id Prefix")
+            .description("When Use Transaction is set to true, KafkaProducer config 'transactional.id' will be a generated UUID and will be prefixed with this string.")
+            .expressionLanguageSupported(ExpressionLanguageScope.ENVIRONMENT)
+            .addValidator(StandardValidators.NON_EMPTY_EL_VALIDATOR)
+            .dependsOn(USE_TRANSACTIONS, "true")
+            .required(false)
+            .build();
+
     static final PropertyDescriptor MESSAGE_HEADER_ENCODING = new PropertyDescriptor.Builder()
             .name("message-header-encoding")
             .displayName("Message Header Encoding")
@@ -231,6 +256,8 @@ public class PublishKafka extends AbstractProcessor implements VerifiableProcess
             KEY,
             KEY_ATTRIBUTE_ENCODING,
             ATTRIBUTE_NAME_REGEX,
+            USE_TRANSACTIONS,
+            TRANSACTIONAL_ID_PREFIX,
             MESSAGE_HEADER_ENCODING,
             MESSAGE_KEY_FIELD,
             MAX_REQUEST_SIZE,
@@ -268,7 +295,11 @@ public class PublishKafka extends AbstractProcessor implements VerifiableProcess
         }
 
         final KafkaConnectionService connectionService = context.getProperty(CONNECTION_SERVICE).asControllerService(KafkaConnectionService.class);
-        final KafkaProducerService producerService = connectionService.getProducerService(new ProducerConfiguration());
+
+        final boolean useTransactions = context.getProperty(USE_TRANSACTIONS).asBoolean();
+        final String transactionalIdPrefix = context.getProperty(TRANSACTIONAL_ID_PREFIX).evaluateAttributeExpressions().getValue();
+        final ProducerConfiguration producerConfiguration = new ProducerConfiguration(useTransactions, transactionalIdPrefix);
+        final KafkaProducerService producerService = connectionService.getProducerService(producerConfiguration);
 
         final RecordReaderFactory readerFactory = context.getProperty(RECORD_READER).asControllerService(RecordReaderFactory.class);
         final RecordSetWriterFactory writerFactory = context.getProperty(RECORD_WRITER).asControllerService(RecordSetWriterFactory.class);
@@ -367,7 +398,12 @@ public class PublishKafka extends AbstractProcessor implements VerifiableProcess
         final List<ConfigVerificationResult> verificationResults = new ArrayList<>();
 
         final KafkaConnectionService connectionService = context.getProperty(CONNECTION_SERVICE).asControllerService(KafkaConnectionService.class);
-        final KafkaProducerService producerService = connectionService.getProducerService(new ProducerConfiguration());
+
+        final boolean useTransactions = context.getProperty(USE_TRANSACTIONS).asBoolean();
+        final String transactionalIdPrefix = context.getProperty(TRANSACTIONAL_ID_PREFIX).evaluateAttributeExpressions().getValue();
+        final Supplier<String> transactionalIdSupplier = new TransactionIdSupplier(transactionalIdPrefix);
+        final ProducerConfiguration producerConfiguration = new ProducerConfiguration(useTransactions, transactionalIdSupplier.get());
+        final KafkaProducerService producerService = connectionService.getProducerService(producerConfiguration);
 
         final ConfigVerificationResult.Builder verificationPartitions = new ConfigVerificationResult.Builder()
                 .verificationStepName("Verify Topic Partitions");

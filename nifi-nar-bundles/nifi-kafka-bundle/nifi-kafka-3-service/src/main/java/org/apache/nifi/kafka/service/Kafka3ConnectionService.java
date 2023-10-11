@@ -20,6 +20,7 @@ import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.ListTopicsResult;
 import org.apache.kafka.clients.admin.TopicListing;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.security.auth.SecurityProtocol;
@@ -41,6 +42,7 @@ import org.apache.nifi.kafka.service.api.producer.ProducerConfiguration;
 import org.apache.nifi.kafka.service.consumer.Kafka3ConsumerService;
 import org.apache.nifi.kafka.service.producer.Kafka3ProducerService;
 import org.apache.nifi.kafka.shared.property.SaslMechanism;
+import org.apache.nifi.kafka.shared.transaction.TransactionIdSupplier;
 import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.processor.util.StandardValidators;
 
@@ -176,7 +178,13 @@ public class Kafka3ConnectionService extends AbstractControllerService implement
 
     @Override
     public KafkaProducerService getProducerService(final ProducerConfiguration producerConfiguration) {
-        return new Kafka3ProducerService(clientProperties);
+        final Properties propertiesProducer = new Properties();
+        propertiesProducer.putAll(clientProperties);
+        if (producerConfiguration.getUseTransactions()) {
+            propertiesProducer.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG,
+                    new TransactionIdSupplier(producerConfiguration.getTransactionIdPrefix()).get());
+        }
+        return new Kafka3ProducerService(propertiesProducer, producerConfiguration);
     }
 
     @Override

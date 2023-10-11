@@ -121,12 +121,24 @@ public class Kafka3ConnectionServiceIT {
     }
 
     @Test
-    void testProduceOne() {
+    void testProduceOneNoTransaction() {
         runner.enableControllerService(service);
-        final KafkaProducerService producerService = service.getProducerService(new ProducerConfiguration());
+        final ProducerConfiguration producerConfiguration = new ProducerConfiguration(false, null);
+        final KafkaProducerService producerService = service.getProducerService(producerConfiguration);
         final KafkaRecord kafkaRecord = new KafkaRecord(null, null, null, null, RECORD_VALUE, Collections.emptyList());
         final List<KafkaRecord> kafkaRecords = Collections.singletonList(kafkaRecord);
-        final RecordSummary summary = producerService.send(kafkaRecords.iterator(), new PublishContext(TOPIC, null, null));
+        final RecordSummary summary = producerService.send(kafkaRecords.iterator(), new PublishContext(TOPIC + "-produce", null, null));
+        assertNotNull(summary);
+    }
+
+    @Test
+    void testProduceOneWithTransaction() {
+        runner.enableControllerService(service);
+        final ProducerConfiguration producerConfiguration = new ProducerConfiguration(true, "transaction-");
+        final KafkaProducerService producerService = service.getProducerService(producerConfiguration);
+        final KafkaRecord kafkaRecord = new KafkaRecord(null, null, null, null, RECORD_VALUE, Collections.emptyList());
+        final List<KafkaRecord> kafkaRecords = Collections.singletonList(kafkaRecord);
+        final RecordSummary summary = producerService.send(kafkaRecords.iterator(), new PublishContext(TOPIC + "-produce", null, null));
         assertNotNull(summary);
     }
 
@@ -134,7 +146,8 @@ public class Kafka3ConnectionServiceIT {
     void testProduceConsumeRecord() throws Exception {
         runner.enableControllerService(service);
 
-        final KafkaProducerService producerService = service.getProducerService(new ProducerConfiguration());
+        final ProducerConfiguration producerConfiguration = new ProducerConfiguration(false, null);
+        final KafkaProducerService producerService = service.getProducerService(producerConfiguration);
 
         final long timestamp = System.currentTimeMillis();
         final KafkaRecord kafkaRecord = new KafkaRecord(null, null, timestamp, RECORD_KEY, RECORD_VALUE, Collections.emptyList());
@@ -200,7 +213,8 @@ public class Kafka3ConnectionServiceIT {
         runner.setProperty(service, Kafka3ConnectionService.BOOTSTRAP_SERVERS, kafkaContainer.getBootstrapServers());
         runner.enableControllerService(service);
 
-        final KafkaProducerService producerService = service.getProducerService(null);
+        final ProducerConfiguration producerConfiguration = new ProducerConfiguration(false, null);
+        final KafkaProducerService producerService = service.getProducerService(producerConfiguration);
         final List<PartitionState> partitionStates = producerService.getPartitionStates(TOPIC);
         assertPartitionStatesFound(partitionStates);
     }

@@ -50,6 +50,7 @@ public class PublishKafkaIT extends PublishKafkaBaseIT {
         runner.setProperty(PublishKafka.CONNECTION_SERVICE, SERVICE_ID);
         runner.setProperty(PublishKafka.TOPIC_NAME, getClass().getName());
         runner.setProperty(PublishKafka.ATTRIBUTE_NAME_REGEX, "a.*");
+        //runner.setProperty(PublishKafka.USE_TRANSACTIONS, Boolean.FALSE.toString());
 
         final Map<String, String> attributes = new HashMap<>();
         attributes.put("a1", "valueA1");

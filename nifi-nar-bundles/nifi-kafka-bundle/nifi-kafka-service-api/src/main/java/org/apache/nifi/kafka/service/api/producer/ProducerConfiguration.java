@@ -17,4 +17,19 @@
 package org.apache.nifi.kafka.service.api.producer;
 
 public class ProducerConfiguration {
+    private final boolean useTransactions;
+    private final String transactionIdPrefix;
+
+    public ProducerConfiguration(final boolean useTransactions, final String transactionIdPrefix) {
+        this.useTransactions = useTransactions;
+        this.transactionIdPrefix = transactionIdPrefix;
+    }
+
+    public boolean getUseTransactions() {
+        return useTransactions;
+    }
+
+    public String getTransactionIdPrefix() {
+        return transactionIdPrefix;
+    }
 }
