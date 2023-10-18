@@ -19,13 +19,17 @@ package org.apache.nifi.kafka.service.consumer;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.nifi.kafka.service.api.common.OffsetSummary;
 import org.apache.nifi.kafka.service.api.common.PartitionState;
+import org.apache.nifi.kafka.service.api.common.TopicPartitionSummary;
 import org.apache.nifi.kafka.service.api.consumer.AutoOffsetReset;
 import org.apache.nifi.kafka.service.api.consumer.KafkaConsumerService;
 import org.apache.nifi.kafka.service.api.consumer.PollingContext;
+import org.apache.nifi.kafka.service.api.consumer.PollingSummary;
 import org.apache.nifi.kafka.service.api.header.RecordHeader;
 import org.apache.nifi.kafka.service.api.record.ByteRecord;
-import org.apache.nifi.kafka.service.api.record.RecordSummary;
 import org.apache.nifi.kafka.service.consumer.pool.ConsumerObjectPool;
 import org.apache.nifi.kafka.service.consumer.pool.Subscription;
 import org.apache.nifi.logging.ComponentLog;
@@ -34,7 +38,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
@@ -46,7 +52,7 @@ import java.util.stream.Collectors;
  * Kafka 3 Consumer Service implementation with Object Pooling for subscribed Kafka Consumers
  */
 public class Kafka3ConsumerService implements KafkaConsumerService {
-    private static final Duration POLL_TIMEOUT = Duration.ofMillis(100);
+    private static final Duration POLL_TIMEOUT = Duration.ofMillis(250);
 
     private final ComponentLog componentLog;
 
@@ -58,8 +64,19 @@ public class Kafka3ConsumerService implements KafkaConsumerService {
     }
 
     @Override
-    public void commit(final RecordSummary recordSummary) {
-        Objects.requireNonNull(recordSummary, "Record Summary required");
+    public void commit(final PollingSummary pollingSummary) {
+        Objects.requireNonNull(pollingSummary, "Polling Summary required");
+
+        final Subscription subscription = getSubscription(pollingSummary);
+        final Map<TopicPartition, OffsetAndMetadata> offsets = getOffsets(pollingSummary);
+
+        final long started = System.currentTimeMillis();
+        final long elapsed = runConsumerFunction(subscription, (consumer) -> {
+            consumer.commitSync(offsets);
+            return started - System.currentTimeMillis();
+        });
+
+        componentLog.debug("Committed Records in [{} ms] for {}", elapsed, pollingSummary);
     }
 
     @Override
@@ -108,6 +125,22 @@ public class Kafka3ConsumerService implements KafkaConsumerService {
         return topicPatternFound
                 .map(pattern -> new Subscription(groupId, pattern, autoOffsetReset))
                 .orElseGet(() -> new Subscription(groupId, pollingContext.getTopics(), autoOffsetReset));
+    }
+
+    private Map<TopicPartition, OffsetAndMetadata> getOffsets(final PollingSummary pollingSummary) {
+        final Map<TopicPartition, OffsetAndMetadata> offsets = new LinkedHashMap<>();
+
+        final Map<TopicPartitionSummary, OffsetSummary> summaryOffsets = pollingSummary.getOffsets();
+        for (final Map.Entry<TopicPartitionSummary, OffsetSummary> offsetEntry : summaryOffsets.entrySet()) {
+            final TopicPartitionSummary topicPartitionSummary = offsetEntry.getKey();
+            final TopicPartition topicPartition = new TopicPartition(topicPartitionSummary.getTopic(), topicPartitionSummary.getPartition());
+
+            final OffsetSummary offsetSummary = offsetEntry.getValue();
+            final OffsetAndMetadata offsetAndMetadata = new OffsetAndMetadata(offsetSummary.getOffset());
+            offsets.put(topicPartition, offsetAndMetadata);
+        }
+
+        return offsets;
     }
 
     private <T> T runConsumerFunction(final Subscription subscription, final Function<Consumer<byte[], byte[]>, T> consumerFunction) {

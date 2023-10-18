@@ -81,4 +81,8 @@ public class ByteRecord {
     public byte[] getValue() {
         return value;
     }
+
+    public List<RecordHeader> getHeaders() {
+        return headers;
+    }
 }

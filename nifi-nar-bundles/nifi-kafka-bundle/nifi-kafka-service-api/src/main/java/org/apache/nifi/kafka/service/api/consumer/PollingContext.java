@@ -22,6 +22,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+/**
+ * Polling Context for consuming records from Kafka Topics
+ */
 public class PollingContext {
     private final String groupId;
 
@@ -59,5 +62,10 @@ public class PollingContext {
 
     public AutoOffsetReset getAutoOffsetReset() {
         return autoOffsetReset;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("Group ID [%s] Topics %s Topic Pattern [%s] Auto Offset Reset [%s]", groupId, topics, topicPattern, autoOffsetReset);
     }
 }

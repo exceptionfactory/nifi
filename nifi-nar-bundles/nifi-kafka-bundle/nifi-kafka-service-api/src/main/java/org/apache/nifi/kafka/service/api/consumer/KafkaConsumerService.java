@@ -18,7 +18,6 @@ package org.apache.nifi.kafka.service.api.consumer;
 
 import org.apache.nifi.kafka.service.api.common.PartitionState;
 import org.apache.nifi.kafka.service.api.record.ByteRecord;
-import org.apache.nifi.kafka.service.api.record.RecordSummary;
 
 import java.util.List;
 
@@ -29,9 +28,9 @@ public interface KafkaConsumerService extends AutoCloseable {
     /**
      * Commit record information to Kafka Brokers
      *
-     * @param recordSummary Record Summary information to be committed
+     * @param pollingSummary Polling Summary information to be committed
      */
-    void commit(RecordSummary recordSummary);
+    void commit(PollingSummary pollingSummary);
 
     /**
      * Poll Subscriptions for Records
