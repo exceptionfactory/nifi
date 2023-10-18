@@ -40,7 +40,6 @@ import org.apache.nifi.kafka.service.api.producer.KafkaProducerService;
 import org.apache.nifi.kafka.service.api.producer.ProducerConfiguration;
 import org.apache.nifi.kafka.service.api.producer.PublishContext;
 import org.apache.nifi.kafka.service.api.record.KafkaRecord;
-import org.apache.nifi.kafka.service.api.record.RecordSummary;
 import org.apache.nifi.kafka.shared.attribute.KafkaFlowFileAttribute;
 import org.apache.nifi.kafka.shared.property.PublishStrategy;
 import org.apache.nifi.kafka.shared.transaction.TransactionIdSupplier;
