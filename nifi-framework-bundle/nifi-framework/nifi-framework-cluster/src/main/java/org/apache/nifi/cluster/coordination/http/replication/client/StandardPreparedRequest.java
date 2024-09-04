@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.nifi.cluster.coordination.http.replication.okhttp;
+package org.apache.nifi.cluster.coordination.http.replication.client;
 
-import java.io.IOException;
-import java.io.OutputStream;
+import org.apache.nifi.cluster.coordination.http.replication.PreparedRequest;
 
-public interface EntitySerializer {
-    void serialize(Object entity, OutputStream out) throws IOException;
+import java.util.Map;
+
+public record StandardPreparedRequest(String method, Map<String, String> headers, Object entity, byte[] requestBody) implements PreparedRequest {
+
 }

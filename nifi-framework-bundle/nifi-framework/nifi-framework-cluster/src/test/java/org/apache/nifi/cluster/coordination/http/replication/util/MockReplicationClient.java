@@ -54,17 +54,17 @@ public class MockReplicationClient implements HttpReplicationClient {
     public PreparedRequest prepareRequest(String method, Map<String, String> headers, Object entity) {
         return new PreparedRequest() {
             @Override
-            public String getMethod() {
+            public String method() {
                 return method;
             }
 
             @Override
-            public Map<String, String> getHeaders() {
+            public Map<String, String> headers() {
                 return headers;
             }
 
             @Override
-            public Object getEntity() {
+            public Object entity() {
                 return entity;
             }
         };

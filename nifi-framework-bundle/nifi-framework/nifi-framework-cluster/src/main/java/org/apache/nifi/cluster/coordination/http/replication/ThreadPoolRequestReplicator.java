@@ -642,14 +642,14 @@ public class ThreadPoolRequestReplicator implements RequestReplicator, Closeable
 
         final Response response;
         final long startNanos = System.nanoTime();
-        logger.debug("Replicating request to {} {}, request ID = {}, headers = {}", request.getMethod(), uri, requestId, request.getHeaders());
+        logger.debug("Replicating request to {} {}, request ID = {}, headers = {}", request.method(), uri, requestId, request.headers());
 
         // invoke the request
         response = httpClient.replicate(request, uri.toString());
 
         final long nanos = System.nanoTime() - startNanos;
         clusterResponse.addTiming("Perform HTTP Request", nodeId.toString(), nanos);
-        final NodeResponse nodeResponse = new NodeResponse(nodeId, request.getMethod(), uri, response, System.nanoTime() - startNanos, requestId);
+        final NodeResponse nodeResponse = new NodeResponse(nodeId, request.method(), uri, response, System.nanoTime() - startNanos, requestId);
         if (nodeResponse.is2xx()) {
             final int length = nodeResponse.getClientResponse().getLength();
             if (length > 0) {
@@ -850,7 +850,7 @@ public class ThreadPoolRequestReplicator implements RequestReplicator, Closeable
                 final NodeRequestCompletionCallback callback, final StandardAsyncClusterResponse clusterResponse) {
             this.request = request;
             this.nodeId = nodeId;
-            this.method = request.getMethod();
+            this.method = request.method();
             this.uri = uri;
             this.callback = callback;
             this.clusterResponse = clusterResponse;
@@ -866,7 +866,7 @@ public class ThreadPoolRequestReplicator implements RequestReplicator, Closeable
 
             try {
                 // create and send the request
-                final String requestId = request.getHeaders().get("x-nifi-request-id");
+                final String requestId = request.headers().get("x-nifi-request-id");
                 logger.debug("Replicating request {} {} to {}", method, uri.getPath(), nodeId);
 
                 nodeResponse = replicateRequest(request, nodeId, uri, requestId, clusterResponse);

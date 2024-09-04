@@ -278,7 +278,7 @@ public class TestThreadPoolRequestReplicator {
             protected NodeResponse replicateRequest(final PreparedRequest request, final NodeIdentifier nodeId,
                 final URI uri, final String requestId, final StandardAsyncClusterResponse response) {
                 // the resource builder will not expose its headers to us, so we are using Mockito's Whitebox class to extract them.
-                final Object expectsHeader = request.getHeaders().get(ThreadPoolRequestReplicator.REQUEST_VALIDATION_HTTP_HEADER);
+                final Object expectsHeader = request.headers().get(ThreadPoolRequestReplicator.REQUEST_VALIDATION_HTTP_HEADER);
 
                 final int statusCode;
                 if (requestCount.incrementAndGet() == 1) {
@@ -292,7 +292,7 @@ public class TestThreadPoolRequestReplicator {
                 // Return given response from all nodes.
                 final Response clientResponse = mock(Response.class);
                 when(clientResponse.getStatus()).thenReturn(statusCode);
-                return new NodeResponse(nodeId, request.getMethod(), uri, clientResponse, -1L, requestId);
+                return new NodeResponse(nodeId, request.method(), uri, clientResponse, -1L, requestId);
             }
         };
 
@@ -343,7 +343,7 @@ public class TestThreadPoolRequestReplicator {
             protected NodeResponse replicateRequest(final PreparedRequest request, final NodeIdentifier nodeId,
                 final URI uri, final String requestId, final StandardAsyncClusterResponse response) {
                 // the resource builder will not expose its headers to us, so we are using Mockito's Whitebox class to extract them.
-                final Object expectsHeader = request.getHeaders().get(ThreadPoolRequestReplicator.REQUEST_VALIDATION_HTTP_HEADER);
+                final Object expectsHeader = request.headers().get(ThreadPoolRequestReplicator.REQUEST_VALIDATION_HTTP_HEADER);
 
                 final int requestIndex = requestCount.incrementAndGet();
                 assertEquals(ThreadPoolRequestReplicator.NODE_CONTINUE, expectsHeader);
@@ -351,10 +351,10 @@ public class TestThreadPoolRequestReplicator {
                 if (requestIndex == 1) {
                     final Response clientResponse = mock(Response.class);
                     when(clientResponse.getStatus()).thenReturn(202);
-                    return new NodeResponse(nodeId, request.getMethod(), uri, clientResponse, -1L, requestId);
+                    return new NodeResponse(nodeId, request.method(), uri, clientResponse, -1L, requestId);
                 } else {
                     final IllegalClusterStateException explanation = new IllegalClusterStateException("Intentional Exception for Unit Testing");
-                    return new NodeResponse(nodeId, request.getMethod(), uri, explanation);
+                    return new NodeResponse(nodeId, request.method(), uri, explanation);
                 }
             }
         };
@@ -565,17 +565,17 @@ public class TestThreadPoolRequestReplicator {
                 }
 
                 // ensure the request chain is in the request
-                final Object proxiedEntities = request.getHeaders().get(ProxiedEntitiesUtils.PROXY_ENTITIES_CHAIN);
+                final Object proxiedEntities = request.headers().get(ProxiedEntitiesUtils.PROXY_ENTITIES_CHAIN);
                 assertEquals(expectedRequestChain, proxiedEntities);
 
                 // ensure the proxied entity groups are in the request
-                final Object proxiedEntityGroups = request.getHeaders().get(ProxiedEntitiesUtils.PROXY_ENTITY_GROUPS);
+                final Object proxiedEntityGroups = request.headers().get(ProxiedEntitiesUtils.PROXY_ENTITY_GROUPS);
                 assertEquals(expectedProxiedEntityGroups, proxiedEntityGroups);
 
                 // Return given response from all nodes.
                 final Response clientResponse = mock(Response.class);
                 when(clientResponse.getStatus()).thenReturn(status.getStatusCode());
-                return new NodeResponse(nodeId, request.getMethod(), uri, clientResponse, -1L, requestId);
+                return new NodeResponse(nodeId, request.method(), uri, clientResponse, -1L, requestId);
             }
         };
 

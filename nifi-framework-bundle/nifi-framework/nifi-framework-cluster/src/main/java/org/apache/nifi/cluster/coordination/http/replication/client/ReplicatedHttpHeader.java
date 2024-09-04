@@ -14,15 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.nifi.cluster.coordination.http.replication.client;
 
-package org.apache.nifi.cluster.coordination.http.replication;
+enum ReplicatedHttpHeader {
+    ACCEPT_ENCODING("Accept-Encoding"),
 
-import java.util.Map;
+    CONTENT_ENCODING("Content-Encoding"),
 
-public interface PreparedRequest {
-    String method();
+    CONTENT_LENGTH("Content-Length"),
 
-    Map<String, String> headers();
+    CONTENT_TYPE("Content-Type");
 
-    Object entity();
+    private final String header;
+
+    ReplicatedHttpHeader(final String header) {
+        this.header = header;
+    }
+
+    String getHeader() {
+        return header;
+    }
 }
