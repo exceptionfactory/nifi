@@ -25,6 +25,7 @@
     <packaging>pom</packaging>
     <modules>
         <module>nifi-standard-shared-bundle</module>
+        <module>nifi-flowfile-transfer-bundle</module>
         <module>nifi-hadoop-bundle</module>
         <module>nifi-hadoop-libraries-bundle</module>
         <module>nifi-standard-bundle</module>
