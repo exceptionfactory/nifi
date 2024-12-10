@@ -34,7 +34,6 @@ public class PropertyDescriptor implements Serializable {
     private boolean required;
     private boolean sensitive;
     private ExpressionLanguageScope expressionLanguageScope = ExpressionLanguageScope.NONE;
-    private String expressionLanguageScopeDescription = ExpressionLanguageScope.NONE.getDescription();
     private DefinedType typeProvidedByValue;
     private String validRegex;
     private String validator;
@@ -112,7 +111,6 @@ public class PropertyDescriptor implements Serializable {
 
     public void setExpressionLanguageScope(ExpressionLanguageScope expressionLanguageScope) {
         this.expressionLanguageScope = expressionLanguageScope;
-        this.expressionLanguageScopeDescription = expressionLanguageScope == null ? null : expressionLanguageScope.getDescription();
     }
 
     @Schema(description = "The description of the expression language scope supported by this property", accessMode = Schema.AccessMode.READ_ONLY)
