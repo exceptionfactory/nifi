@@ -24,7 +24,6 @@ import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Catalog;
-import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.nifi.annotation.behavior.InputRequirement;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
@@ -117,6 +116,8 @@ public class PutIcebergTable extends AbstractProcessor {
 
     private static final Set<Relationship> relationships = Set.of(SUCCESS, FAILURE);
 
+    private static final long MAXIMUM_BYTES = 536870912;
+
     private final Clock clock = Clock.systemDefaultZone();
 
     private volatile Catalog catalog;
@@ -142,59 +143,63 @@ public class PutIcebergTable extends AbstractProcessor {
 
     @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
-        final FlowFile flowFile = session.get();
-        if (flowFile == null) {
+        final TableIdentifierFlowFileFilter flowFileFilter = new TableIdentifierFlowFileFilter(context, MAXIMUM_BYTES);
+        final List<FlowFile> flowFiles = session.get(flowFileFilter);
+        if (flowFiles.isEmpty()) {
             return;
         }
 
-        onFlowFile(context, session, flowFile);
-    }
-
-    private void onFlowFile(final ProcessContext context, final ProcessSession session, final FlowFile flowFile) {
-        final String namespace = context.getProperty(NAMESPACE).evaluateAttributeExpressions(flowFile).getValue();
-        final String tableName = context.getProperty(TABLE_NAME).evaluateAttributeExpressions(flowFile).getValue();
-        final Namespace icebergNamespace = Namespace.of(namespace);
-        final TableIdentifier tableIdentifier = TableIdentifier.of(icebergNamespace, tableName);
-
+        final TableIdentifier tableIdentifier = flowFileFilter.getTableIdentifier();
         final RecordReaderFactory recordReaderFactory = context.getProperty(RECORD_READER).asControllerService(RecordReaderFactory.class);
-        processFlowFile(session, flowFile, tableIdentifier, recordReaderFactory);
+        processFlowFiles(session, flowFiles, tableIdentifier, recordReaderFactory);
     }
 
-    private void processFlowFile(final ProcessSession session, final FlowFile flowFile, final TableIdentifier tableIdentifier, final RecordReaderFactory recordReaderFactory) {
+    private void processFlowFiles(final ProcessSession session, final List<FlowFile> flowFiles, final TableIdentifier tableIdentifier, final RecordReaderFactory recordReaderFactory) {
         final long started = clock.millis();
 
         final AtomicReference<Relationship> relationship = new AtomicReference<>(SUCCESS);
-        try (
-                InputStream inputStream = session.read(flowFile);
-                RecordReader recordReader = recordReaderFactory.createRecordReader(flowFile, inputStream, getLogger())
-        ) {
-            final Table table = getTable(tableIdentifier);
-            final IcebergRowWriter rowWriter = icebergWriter.getRowWriter(table);
 
-            final AtomicLong recordsProcessed = new AtomicLong();
-            try {
-                writeRecords(recordReader, rowWriter, recordsProcessed);
+        final Table table = getTable(tableIdentifier);
+        final IcebergRowWriter rowWriter = icebergWriter.getRowWriter(table);
 
-                final DataFile[] dataFiles = rowWriter.dataFiles();
-                appendDataFiles(table, dataFiles);
-
-                final String transitUri = table.location();
-                final long elapsed = clock.millis() - started;
-                session.getProvenanceReporter().send(flowFile, transitUri, elapsed);
-
-                session.adjustCounter(RECORDS_PROCESSED_COUNTER, recordsProcessed.get(), false);
-                session.adjustCounter(DATA_FILES_PROCESSED_COUNTER, dataFiles.length, false);
+        for (final FlowFile flowFile : flowFiles) {
+            try (
+                    InputStream inputStream = session.read(flowFile);
+                    RecordReader recordReader = recordReaderFactory.createRecordReader(flowFile, inputStream, getLogger())
+            ) {
+                final AtomicLong recordsProcessed = new AtomicLong();
+                try {
+                    writeRecords(recordReader, rowWriter, recordsProcessed);
+                    session.adjustCounter(RECORDS_PROCESSED_COUNTER, recordsProcessed.get(), false);
+                } catch (final Exception e) {
+                    getLogger().error("Write Rows to Table [{}] failed {}", tableIdentifier, flowFile, e);
+                    abortWriter(rowWriter, tableIdentifier);
+                    relationship.set(FAILURE);
+                }
             } catch (final Exception e) {
-                getLogger().error("Write Rows to Table [{}] failed {}", tableIdentifier, flowFile, e);
-                abortWriter(rowWriter, tableIdentifier);
+                getLogger().error("Processing Records for Table [{}] failed {}", tableIdentifier, flowFile, e);
                 relationship.set(FAILURE);
             }
+        }
+
+        try {
+            final DataFile[] dataFiles = rowWriter.dataFiles();
+            appendDataFiles(table, dataFiles);
+            session.adjustCounter(DATA_FILES_PROCESSED_COUNTER, dataFiles.length, false);
         } catch (final Exception e) {
-            getLogger().error("Processing Records for Table [{}] failed {}", tableIdentifier, flowFile, e);
+            getLogger().error("Appending Data Files to Table [{}] failed", tableIdentifier, e);
             relationship.set(FAILURE);
         }
 
-        session.transfer(flowFile, relationship.get());
+        if (SUCCESS.equals(relationship.get())) {
+            final long elapsed = clock.millis() - started;
+            final String transitUri = table.location();
+            for (final FlowFile flowFile : flowFiles) {
+                session.getProvenanceReporter().send(flowFile, transitUri, elapsed);
+            }
+        }
+
+        session.transfer(flowFiles, relationship.get());
     }
 
     private Table getTable(final TableIdentifier tableIdentifier) {
