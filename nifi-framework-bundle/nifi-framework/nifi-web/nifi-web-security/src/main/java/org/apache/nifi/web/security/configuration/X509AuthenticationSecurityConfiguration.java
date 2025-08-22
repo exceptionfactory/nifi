@@ -24,9 +24,7 @@ import org.apache.nifi.web.security.x509.SubjectDnX509PrincipalExtractor;
 import org.apache.nifi.web.security.x509.X509AuthenticationFilter;
 import org.apache.nifi.web.security.x509.X509AuthenticationProvider;
 import org.apache.nifi.web.security.x509.X509CertificateExtractor;
-import org.apache.nifi.web.security.x509.X509CertificateValidator;
 import org.apache.nifi.web.security.x509.X509IdentityProvider;
-import org.apache.nifi.web.security.x509.ocsp.OcspCertificateValidator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -80,21 +78,8 @@ public class X509AuthenticationSecurityConfiguration {
     }
 
     @Bean
-    public OcspCertificateValidator ocspValidator() {
-        return new OcspCertificateValidator(niFiProperties);
-    }
-
-    @Bean
-    public X509CertificateValidator certificateValidator() {
-        final X509CertificateValidator certificateValidator = new X509CertificateValidator();
-        certificateValidator.setOcspValidator(ocspValidator());
-        return certificateValidator;
-    }
-
-    @Bean
     public X509IdentityProvider certificateIdentityProvider() {
         final X509IdentityProvider identityProvider = new X509IdentityProvider();
-        identityProvider.setCertificateValidator(certificateValidator());
         identityProvider.setPrincipalExtractor(principalExtractor());
         return identityProvider;
     }
