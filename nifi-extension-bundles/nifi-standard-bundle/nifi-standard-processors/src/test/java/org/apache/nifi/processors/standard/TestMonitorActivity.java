@@ -57,7 +57,7 @@ public class TestMonitorActivity {
         runner.assertAllFlowFilesTransferred(MonitorActivity.REL_SUCCESS, 1);
         runner.clearTransferState();
 
-        TimeUnit.MILLISECONDS.sleep(200);
+        TimeUnit.MILLISECONDS.sleep(150);
 
         runNext(runner);
         runner.assertAllFlowFilesTransferred(MonitorActivity.REL_INACTIVE, 1);
@@ -73,7 +73,7 @@ public class TestMonitorActivity {
         runner.assertTransferCount(MonitorActivity.REL_SUCCESS, 1);
         runner.assertTransferCount(MonitorActivity.REL_ACTIVITY_RESTORED, 1);
 
-        MockFlowFile restoredFlowFile = runner.getFlowFilesForRelationship(MonitorActivity.REL_ACTIVITY_RESTORED).get(0);
+        MockFlowFile restoredFlowFile = runner.getFlowFilesForRelationship(MonitorActivity.REL_ACTIVITY_RESTORED).getFirst();
         String flowFileContent = new String(restoredFlowFile.toByteArray());
         assertTrue(Pattern.matches("Activity restored at time: (.*) after being inactive for 0 minutes", flowFileContent));
         restoredFlowFile.assertAttributeNotExists("key");
@@ -82,7 +82,7 @@ public class TestMonitorActivity {
         runner.clearTransferState();
         runner.setProperty(MonitorActivity.CONTINUALLY_SEND_MESSAGES, "true");
 
-        TimeUnit.MILLISECONDS.sleep(200);
+        TimeUnit.MILLISECONDS.sleep(150);
         runNext(runner);
 
         runner.assertTransferCount(MonitorActivity.REL_INACTIVE, 1);
@@ -97,7 +97,7 @@ public class TestMonitorActivity {
         runner.assertTransferCount(MonitorActivity.REL_ACTIVITY_RESTORED, 1);
         runner.assertTransferCount(MonitorActivity.REL_SUCCESS, 1);
 
-        restoredFlowFile = runner.getFlowFilesForRelationship(MonitorActivity.REL_ACTIVITY_RESTORED).get(0);
+        restoredFlowFile = runner.getFlowFilesForRelationship(MonitorActivity.REL_ACTIVITY_RESTORED).getFirst();
         flowFileContent = new String(restoredFlowFile.toByteArray());
         assertTrue(Pattern.matches("Activity restored at time: (.*) after being inactive for 0 minutes", flowFileContent));
         restoredFlowFile.assertAttributeNotExists("key");
@@ -113,7 +113,7 @@ public class TestMonitorActivity {
         runner.setProperty(MonitorActivity.WAIT_FOR_ACTIVITY, "true");
 
         runner.run(1, false);
-        TimeUnit.MILLISECONDS.sleep(200);
+        TimeUnit.MILLISECONDS.sleep(150);
         runNext(runner);
         runner.assertTransferCount(MonitorActivity.REL_INACTIVE, 0);
 
@@ -122,7 +122,7 @@ public class TestMonitorActivity {
         runner.assertAllFlowFilesTransferred(MonitorActivity.REL_SUCCESS, 1);
         runner.clearTransferState();
 
-        TimeUnit.MILLISECONDS.sleep(200);
+        TimeUnit.MILLISECONDS.sleep(150);
 
         runNext(runner);
         runner.assertAllFlowFilesTransferred(MonitorActivity.REL_INACTIVE, 1);
@@ -138,14 +138,14 @@ public class TestMonitorActivity {
         runner.assertTransferCount(MonitorActivity.REL_SUCCESS, 1);
         runner.assertTransferCount(MonitorActivity.REL_ACTIVITY_RESTORED, 1);
 
-        MockFlowFile restoredFlowFile = runner.getFlowFilesForRelationship(MonitorActivity.REL_ACTIVITY_RESTORED).get(0);
+        MockFlowFile restoredFlowFile = runner.getFlowFilesForRelationship(MonitorActivity.REL_ACTIVITY_RESTORED).getFirst();
         restoredFlowFile.assertAttributeNotExists("key");
         restoredFlowFile.assertAttributeNotExists("key1");
 
         runner.clearTransferState();
         runner.setProperty(MonitorActivity.CONTINUALLY_SEND_MESSAGES, "true");
 
-        TimeUnit.MILLISECONDS.sleep(200);
+        TimeUnit.MILLISECONDS.sleep(150);
         runNext(runner);
 
         runner.assertTransferCount(MonitorActivity.REL_INACTIVE, 1);
@@ -160,7 +160,7 @@ public class TestMonitorActivity {
         runner.assertTransferCount(MonitorActivity.REL_ACTIVITY_RESTORED, 1);
         runner.assertTransferCount(MonitorActivity.REL_SUCCESS, 1);
 
-        restoredFlowFile = runner.getFlowFilesForRelationship(MonitorActivity.REL_ACTIVITY_RESTORED).get(0);
+        restoredFlowFile = runner.getFlowFilesForRelationship(MonitorActivity.REL_ACTIVITY_RESTORED).getFirst();
         restoredFlowFile.assertAttributeNotExists("key");
         restoredFlowFile.assertAttributeNotExists("key1");
     }
@@ -387,7 +387,7 @@ public class TestMonitorActivity {
         // At second trigger it's not connected, new last success transfer stored only locally.
         runner.setConnected(false);
         runner.enqueue("lorem ipsum");
-        TimeUnit.MILLISECONDS.sleep(500); // This sleep is needed to guarantee, that the stored timestamp will be different.
+        TimeUnit.MILLISECONDS.sleep(100); // This sleep is needed to guarantee, that the stored timestamp will be different.
         runNext(runner);
 
         assertEquals(lastSuccessTransferAfterFirstTrigger,
@@ -397,7 +397,7 @@ public class TestMonitorActivity {
 
         // The third trigger is without flow file, but reconcile is triggered and value is written ot cluster.
         runner.setConnected(true);
-        TimeUnit.MILLISECONDS.sleep(500);
+        TimeUnit.MILLISECONDS.sleep(100);
         runNext(runner);
 
         assertNotEquals(lastSuccessTransferAfterFirstTrigger,
@@ -425,7 +425,7 @@ public class TestMonitorActivity {
         // At second trigger it's not connected, new last success transfer stored only locally.
         runner.setConnected(false);
         runner.enqueue("lorem ipsum");
-        TimeUnit.MILLISECONDS.sleep(500); // This sleep is needed to guarantee, that the stored timestamp will be different.
+        TimeUnit.MILLISECONDS.sleep(100); // This sleep is needed to guarantee, that the stored timestamp will be different.
         runNext(runner);
 
         assertEquals(lastSuccessTransferAfterFirstTrigger,
@@ -505,10 +505,10 @@ public class TestMonitorActivity {
         runner.enqueue(new byte[0]);
         runner.run(1, false);
         runner.assertAllFlowFilesTransferred(MonitorActivity.REL_SUCCESS, 1);
-        MockFlowFile originalFlowFile = runner.getFlowFilesForRelationship(MonitorActivity.REL_SUCCESS).get(0);
+        MockFlowFile originalFlowFile = runner.getFlowFilesForRelationship(MonitorActivity.REL_SUCCESS).getFirst();
         runner.clearTransferState();
 
-        TimeUnit.MILLISECONDS.sleep(200);
+        TimeUnit.MILLISECONDS.sleep(150);
 
         runNext(runner);
         runner.assertAllFlowFilesTransferred(MonitorActivity.REL_INACTIVE, 1);
@@ -524,7 +524,7 @@ public class TestMonitorActivity {
         runner.assertTransferCount(MonitorActivity.REL_SUCCESS, 1);
         runner.assertTransferCount(MonitorActivity.REL_ACTIVITY_RESTORED, 1);
 
-        MockFlowFile restoredFlowFile = runner.getFlowFilesForRelationship(MonitorActivity.REL_ACTIVITY_RESTORED).get(0);
+        MockFlowFile restoredFlowFile = runner.getFlowFilesForRelationship(MonitorActivity.REL_ACTIVITY_RESTORED).getFirst();
         String flowFileContent = new String(restoredFlowFile.toByteArray());
         assertTrue(Pattern.matches("Activity restored at time: (.*) after being inactive for 0 minutes", flowFileContent));
         restoredFlowFile.assertAttributeEquals("key", "value");
@@ -538,7 +538,7 @@ public class TestMonitorActivity {
         runner.clearTransferState();
         runner.setProperty(MonitorActivity.CONTINUALLY_SEND_MESSAGES, "true");
 
-        TimeUnit.MILLISECONDS.sleep(200);
+        TimeUnit.MILLISECONDS.sleep(150);
         runNext(runner);
 
         runner.assertTransferCount(MonitorActivity.REL_INACTIVE, 1);
@@ -553,7 +553,7 @@ public class TestMonitorActivity {
         runner.assertTransferCount(MonitorActivity.REL_ACTIVITY_RESTORED, 1);
         runner.assertTransferCount(MonitorActivity.REL_SUCCESS, 1);
 
-        restoredFlowFile = runner.getFlowFilesForRelationship(MonitorActivity.REL_ACTIVITY_RESTORED).get(0);
+        restoredFlowFile = runner.getFlowFilesForRelationship(MonitorActivity.REL_ACTIVITY_RESTORED).getFirst();
         flowFileContent = new String(restoredFlowFile.toByteArray());
         assertTrue(Pattern.matches("Activity restored at time: (.*) after being inactive for 0 minutes", flowFileContent));
         restoredFlowFile.assertAttributeEquals("key", "value");
@@ -575,7 +575,7 @@ public class TestMonitorActivity {
             rerun = false;
             runner.setProperty(MonitorActivity.THRESHOLD, threshold + " millis");
 
-            TimeUnit.MILLISECONDS.sleep(1000L);
+            TimeUnit.MILLISECONDS.sleep(150);
 
             // shouldn't generate inactivity b/c run() will reset the lastSuccessfulTransfer if @OnSchedule & onTrigger
             // does not  get called more than MonitorActivity.THRESHOLD apart
@@ -763,7 +763,7 @@ public class TestMonitorActivity {
         final List<MockFlowFile> inactiveFiles = runner.getFlowFilesForRelationship(MonitorActivity.REL_INACTIVE);
         assertEquals(1, inactiveFiles.size());
 
-        final MockFlowFile inactiveFile = inactiveFiles.get(0);
+        final MockFlowFile inactiveFile = inactiveFiles.getFirst();
         assertNotNull(inactiveFile.getAttribute("inactivityStartMillis"));
         assertNotNull(inactiveFile.getAttribute("inactivityDurationMillis"));
 
@@ -786,7 +786,7 @@ public class TestMonitorActivity {
         final List<MockFlowFile> inactiveFiles = runner.getFlowFilesForRelationship(MonitorActivity.REL_INACTIVE);
         assertEquals(1, inactiveFiles.size());
 
-        final MockFlowFile inactiveFile = inactiveFiles.get(0);
+        final MockFlowFile inactiveFile = inactiveFiles.getFirst();
         assertNotNull(inactiveFile.getAttribute("inactivityStartMillis"));
         assertNotNull(inactiveFile.getAttribute("inactivityDurationMillis"));
 
@@ -812,7 +812,7 @@ public class TestMonitorActivity {
         final List<MockFlowFile> inactiveFiles = runner.getFlowFilesForRelationship(MonitorActivity.REL_INACTIVE);
         assertEquals(1, inactiveFiles.size());
 
-        final MockFlowFile inactiveFile = inactiveFiles.get(0);
+        final MockFlowFile inactiveFile = inactiveFiles.getFirst();
         assertNotNull(inactiveFile.getAttribute("inactivityStartMillis"));
         assertNotNull(inactiveFile.getAttribute("inactivityDurationMillis"));
 
@@ -865,8 +865,8 @@ public class TestMonitorActivity {
         final List<MockFlowFile> activityRestoredFiles = runner.getFlowFilesForRelationship(MonitorActivity.REL_ACTIVITY_RESTORED);
         assertEquals(1, successFiles.size());
         assertEquals(1, activityRestoredFiles.size());
-        assertEquals("value1", activityRestoredFiles.get(0).getAttribute("key1"));
-        assertEquals("value2", activityRestoredFiles.get(0).getAttribute("key2"));
+        assertEquals("value1", activityRestoredFiles.getFirst().getAttribute("key1"));
+        assertEquals("value2", activityRestoredFiles.getFirst().getAttribute("key2"));
 
         // Latest activity should be persisted
         final StateMap updatedState = runner.getStateManager().getState(Scope.CLUSTER);
@@ -938,8 +938,8 @@ public class TestMonitorActivity {
         final List<MockFlowFile> activityRestoredFiles = runner.getFlowFilesForRelationship(MonitorActivity.REL_ACTIVITY_RESTORED);
         assertEquals(1, successFiles.size());
         assertEquals(1, activityRestoredFiles.size());
-        assertEquals("value1", activityRestoredFiles.get(0).getAttribute("key1"));
-        assertEquals("value2", activityRestoredFiles.get(0).getAttribute("key2"));
+        assertEquals("value1", activityRestoredFiles.getFirst().getAttribute("key1"));
+        assertEquals("value2", activityRestoredFiles.getFirst().getAttribute("key2"));
 
         // Latest activity should be persisted
         final StateMap updatedState = runner.getStateManager().getState(Scope.CLUSTER);
@@ -977,8 +977,8 @@ public class TestMonitorActivity {
         final List<MockFlowFile> activityRestoredFiles = runner.getFlowFilesForRelationship(MonitorActivity.REL_ACTIVITY_RESTORED);
         assertEquals(1, successFiles.size());
         assertEquals(1, activityRestoredFiles.size());
-        assertEquals("value1", activityRestoredFiles.get(0).getAttribute("key1"));
-        assertEquals("value2", activityRestoredFiles.get(0).getAttribute("key2"));
+        assertEquals("value1", activityRestoredFiles.getFirst().getAttribute("key1"));
+        assertEquals("value2", activityRestoredFiles.getFirst().getAttribute("key2"));
 
         // Latest activity should NOT be persisted
         final StateMap updatedState = runner.getStateManager().getState(Scope.CLUSTER);
@@ -993,7 +993,7 @@ public class TestMonitorActivity {
         runner.setIsConfiguredForClustering(true);
         runner.setPrimaryNode(false);
         runner.setProperty(MonitorActivity.MONITORING_SCOPE, MonitorActivity.SCOPE_CLUSTER);
-        runner.setProperty(MonitorActivity.THRESHOLD, "10 sec");
+        runner.setProperty(MonitorActivity.THRESHOLD, "1 sec");
         runner.setProperty(MonitorActivity.COPY_ATTRIBUTES, "true");
 
         // Becomes inactive
@@ -1010,15 +1010,15 @@ public class TestMonitorActivity {
         runner.getStateManager().replace(runner.getStateManager().getState(Scope.CLUSTER), clusterState, Scope.CLUSTER);
 
         // Common state is not sampled on each trigger. We need to wait a little to get notified about the update.
-        TimeUnit.MILLISECONDS.sleep(3334); // Sampling rate is threshold/3
+        TimeUnit.MILLISECONDS.sleep(300); // Sampling rate is threshold/3
 
         runNext(runner);
         final List<MockFlowFile> successFiles = runner.getFlowFilesForRelationship(MonitorActivity.REL_SUCCESS);
         final List<MockFlowFile> activityRestoredFiles = runner.getFlowFilesForRelationship(MonitorActivity.REL_ACTIVITY_RESTORED);
         assertEquals(0, successFiles.size());
         assertEquals(1, activityRestoredFiles.size());
-        assertEquals("value1", activityRestoredFiles.get(0).getAttribute("key1"));
-        assertEquals("value2", activityRestoredFiles.get(0).getAttribute("key2"));
+        assertEquals("value1", activityRestoredFiles.getFirst().getAttribute("key1"));
+        assertEquals("value2", activityRestoredFiles.getFirst().getAttribute("key2"));
         runner.clearTransferState();
 
     }
@@ -1033,7 +1033,7 @@ public class TestMonitorActivity {
         runner.setPrimaryNode(true);
         runner.setProperty(MonitorActivity.MONITORING_SCOPE, MonitorActivity.SCOPE_CLUSTER);
         runner.setProperty(MonitorActivity.REPORTING_NODE, MonitorActivity.REPORT_NODE_PRIMARY);
-        runner.setProperty(MonitorActivity.THRESHOLD, "10 sec");
+        runner.setProperty(MonitorActivity.THRESHOLD, "1 sec");
         runner.setProperty(MonitorActivity.COPY_ATTRIBUTES, "true");
 
         // Becomes inactive
@@ -1050,15 +1050,15 @@ public class TestMonitorActivity {
         runner.getStateManager().replace(runner.getStateManager().getState(Scope.CLUSTER), clusterState, Scope.CLUSTER);
 
         // Common state is not sampled on each trigger. We need to wait a little to get notified about the update.
-        TimeUnit.MILLISECONDS.sleep(3334); // Sampling rate is threshold/3
+        TimeUnit.MILLISECONDS.sleep(300); // Sampling rate is threshold/3
 
         runNext(runner);
         final List<MockFlowFile> successFiles = runner.getFlowFilesForRelationship(MonitorActivity.REL_SUCCESS);
         final List<MockFlowFile> activityRestoredFiles = runner.getFlowFilesForRelationship(MonitorActivity.REL_ACTIVITY_RESTORED);
         assertEquals(0, successFiles.size());
         assertEquals(1, activityRestoredFiles.size());
-        assertEquals("value1", activityRestoredFiles.get(0).getAttribute("key1"));
-        assertEquals("value2", activityRestoredFiles.get(0).getAttribute("key2"));
+        assertEquals("value1", activityRestoredFiles.getFirst().getAttribute("key1"));
+        assertEquals("value2", activityRestoredFiles.getFirst().getAttribute("key2"));
         runner.clearTransferState();
     }
 
@@ -1355,7 +1355,7 @@ public class TestMonitorActivity {
     }
 
     @Test
-    public void testMultipleFlowFilesActivateTheFlowInSingleTriggerResultsInSingleMarker() throws IOException {
+    public void testMultipleFlowFilesActivateTheFlowInSingleTriggerResultsInSingleMarker() {
         final TestRunner runner = TestRunners.newTestRunner(new TestableProcessor(TimeUnit.DAYS.toMillis(1)));
         runner.setIsConfiguredForClustering(false);
         runner.setProperty(MonitorActivity.MONITORING_SCOPE, MonitorActivity.SCOPE_NODE);
