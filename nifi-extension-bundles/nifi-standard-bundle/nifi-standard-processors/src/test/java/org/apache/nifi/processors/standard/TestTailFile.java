@@ -28,6 +28,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -35,6 +36,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.RandomAccessFile;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collection;
@@ -134,31 +137,24 @@ public class TestTailFile {
 
     @Test
     public void testNULContentWithReReadOnNulFalseLeaveNul() throws Exception {
-        // GIVEN
         runner.setProperty(TailFile.REREAD_ON_NUL, "false");
 
-        // WHEN
-        // THEN
         testNULContentWithReReadOnNulDefault();
     }
 
     @Test
     public void testNULContentWithReReadOnNulDefault() throws Exception {
-        // GIVEN
         String content1 = "first_line_with_nul\0\n";
         Integer reposition = null;
         String content2 = "second_line\n";
 
         List<String> expected = Arrays.asList("first_line_with_nul\0\n", "second_line\n");
 
-        // WHEN
-        // THEN
         testNULContent(content1, reposition, content2, expected);
     }
 
     @Test
     public void testNULContentWithReReadOnNulFalseOverwriteNul() throws Exception {
-        // GIVEN
         runner.setProperty(TailFile.REREAD_ON_NUL, "false");
 
         String content1 = "first_line_with_nul\0\n";
@@ -167,14 +163,11 @@ public class TestTailFile {
 
         List<String> expected = Arrays.asList("first_line_with_nul\0\n", "overwrite_nul_and_continue_first_line_but_end_up_in_second_line_anyway\n");
 
-        // WHEN
-        // THEN
         testNULContent(content1, reposition, content2, expected);
     }
 
     @Test
     public void testNULContentWithReReadOnNulTrue() throws Exception {
-        // GIVEN
         runner.setProperty(TailFile.REREAD_ON_NUL, "true");
 
         String content1 = "first_line_with_nul\0\n";
@@ -183,17 +176,13 @@ public class TestTailFile {
 
         List<String> expected = List.of("first_line_with_nul overwrite_nul_and_continue_first_line\n");
 
-        // WHEN
-        // THEN
         testNULContent(content1, reposition, content2, expected);
     }
 
     private void testNULContent(String content1, Integer reposition, String content2, List<String> expected) throws IOException {
-        // GIVEN
         runner.setProperty(TailFile.START_POSITION, TailFile.START_CURRENT_FILE.getValue());
         raf.write(content1.getBytes());
 
-        // WHEN
         runner.run(1, false, true);
         if (reposition != null) {
             raf.seek(reposition);
@@ -201,7 +190,6 @@ public class TestTailFile {
         raf.write(content2.getBytes());
         runner.run(1, true, false);
 
-        // THEN
         runner.assertAllFlowFilesTransferred(TailFile.REL_SUCCESS, expected.size());
 
         List<MockFlowFile> flowFiles = runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS);
@@ -404,7 +392,7 @@ public class TestTailFile {
 
 
     @Test
-    public void testConsumeAfterTruncationStartAtBeginningOfFile() throws IOException, InterruptedException {
+    public void testConsumeAfterTruncationStartAtBeginningOfFile() throws IOException {
         runner.setProperty(TailFile.ROLLING_FILENAME_PATTERN, "log.txt*");
         runner.setProperty(TailFile.START_POSITION, TailFile.START_CURRENT_FILE.getValue());
         runner.run();
@@ -427,7 +415,6 @@ public class TestTailFile {
         runner.assertAllFlowFilesTransferred(TailFile.REL_SUCCESS, 0);
 
         // write some bytes to the file.
-        Thread.sleep(1000L); // we need to wait at least one second because of the granularity of timestamps on many file systems.
         raf.write("HELLO\n".getBytes());
 
         runner.run();
@@ -436,7 +423,7 @@ public class TestTailFile {
     }
 
     @Test
-    public void testConsumeAfterTruncationStartAtCurrentTime() throws IOException, InterruptedException {
+    public void testConsumeAfterTruncationStartAtCurrentTime() throws IOException {
         runner.setProperty(TailFile.START_POSITION, TailFile.START_CURRENT_TIME.getValue());
         runner.setProperty(TailFile.ROLLING_FILENAME_PATTERN, "log.txt*");
         runner.run();
@@ -456,7 +443,6 @@ public class TestTailFile {
         runner.run();
         runner.assertAllFlowFilesTransferred(TailFile.REL_SUCCESS, 0);
 
-        Thread.sleep(1000L); // we need to wait at least one second because of the granularity of timestamps on many file systems.
         raf.write("HELLO\n".getBytes());
 
         runner.run();
@@ -475,11 +461,10 @@ public class TestTailFile {
     }
 
     @Test
-    public void testStartAtCurrentTime() throws IOException, InterruptedException {
+    public void testStartAtCurrentTime() throws IOException {
         runner.setProperty(TailFile.START_POSITION, TailFile.START_CURRENT_TIME.getValue());
 
         raf.write("hello world\n".getBytes());
-        Thread.sleep(1000L);
         runner.run(100);
         runner.assertAllFlowFilesTransferred(TailFile.REL_SUCCESS, 0);
     }
@@ -568,7 +553,7 @@ public class TestTailFile {
     }
 
     @Test
-    public void testRolloverAfterHavingReadAllData() throws IOException, InterruptedException {
+    public void testRolloverAfterHavingReadAllData() throws IOException {
         // If we have read all data in a file, and that file does not end with a new-line, then the last line
         // in the file will have been read, added to the checksum, and then we would re-seek to "unread" that
         // last line since it didn't have a new-line. We need to ensure that if the data is then rolled over
@@ -586,8 +571,6 @@ public class TestTailFile {
         runner.clearTransferState();
 
         raf.write("world".getBytes());
-
-        Thread.sleep(1000L);
 
         runner.run(1);
         runner.assertAllFlowFilesTransferred(TailFile.REL_SUCCESS, 0); // should not pull in data because no \n
@@ -641,7 +624,7 @@ public class TestTailFile {
 
 
     @Test
-    public void testMultipleRolloversAfterHavingReadAllData() throws IOException, InterruptedException {
+    public void testMultipleRolloversAfterHavingReadAllData() throws IOException {
         // this mimics the case when we are reading a log file that rolls over while processor is running.
         runner.setProperty(TailFile.ROLLING_FILENAME_PATTERN, "log.*");
         runner.run(1, false, true);
@@ -656,8 +639,6 @@ public class TestTailFile {
         raf.write("world".getBytes());
         runner.run(1); // ensure that we've read 'world' but not consumed it into a flowfile.
 
-        Thread.sleep(1000L);
-
         // rename file to log.2
         raf.close();
         file.renameTo(new File("target/log.2"));
@@ -666,8 +647,6 @@ public class TestTailFile {
         file = new File("target/log.txt");
         raf = new RandomAccessFile(file, "rw");
         raf.write("abc\n".getBytes());
-
-        Thread.sleep(100L);
 
         // rename file to log.1
         raf.close();
@@ -688,7 +667,7 @@ public class TestTailFile {
     }
 
     @Test
-    public void testMultipleRolloversAfterHavingReadAllDataWhileStillRunning() throws IOException, InterruptedException {
+    public void testMultipleRolloversAfterHavingReadAllDataWhileStillRunning() throws IOException {
         // this mimics the case when we are reading a log file that rolls over while processor is running.
         runner.setProperty(TailFile.ROLLING_FILENAME_PATTERN, "log.*");
         runner.run(1, false, true);
@@ -703,8 +682,6 @@ public class TestTailFile {
         raf.write("world".getBytes());
         runner.run(1, false, false); // ensure that we've read 'world' but not consumed it into a flowfile.
 
-        Thread.sleep(1000L);
-
         // rename file to log.2
         raf.close();
         file.renameTo(new File("target/log.2"));
@@ -713,8 +690,6 @@ public class TestTailFile {
         file = new File("target/log.txt");
         raf = new RandomAccessFile(file, "rw");
         raf.write("abc\n".getBytes());
-
-        Thread.sleep(100L);
 
         // rename file to log.1
         raf.close();
@@ -735,7 +710,7 @@ public class TestTailFile {
     }
 
     @Test
-    public void testMultipleRolloversWithLongerFileLength() throws IOException, InterruptedException {
+    public void testMultipleRolloversWithLongerFileLength() throws IOException {
         // this mimics the case when we are reading a log file that rolls over while processor is running.
         runner.setProperty(TailFile.ROLLING_FILENAME_PATTERN, "log.*");
         runner.run(1, false, true);
@@ -753,8 +728,6 @@ public class TestTailFile {
         raf.close();
         file.renameTo(new File("target/log.2"));
 
-        Thread.sleep(1200L);
-
         // write to a new file.
         file = new File("target/log.txt");
         raf = new RandomAccessFile(file, "rw");
@@ -763,7 +736,6 @@ public class TestTailFile {
         // rename file to log.1
         raf.close();
         file.renameTo(new File("target/log.1"));
-        Thread.sleep(1200L);
 
         // write to a new file.
         file = new File("target/log.txt");
@@ -780,11 +752,9 @@ public class TestTailFile {
     }
 
     @Test
-    public void testConsumeWhenNewLineFound() throws IOException, InterruptedException {
+    public void testConsumeWhenNewLineFound() throws IOException {
         runner.run();
         runner.assertAllFlowFilesTransferred(TailFile.REL_SUCCESS, 0);
-
-        Thread.sleep(1100L);
 
         raf.write("Hello, World".getBytes());
         runner.run();
@@ -962,7 +932,7 @@ public class TestTailFile {
     }
 
     @Test
-    public void testMultipleFiles() throws IOException, InterruptedException {
+    public void testMultipleFiles() throws IOException {
         runner.setProperty(TailFile.BASE_DIRECTORY, "target");
         runner.setProperty(TailFile.MODE, TailFile.MODE_MULTIFILE);
         final String fileRegex;
@@ -1011,8 +981,6 @@ public class TestTailFile {
         otherRaf.write("world!".getBytes());
         raf.write("world".getBytes());
 
-        Thread.sleep(100L);
-
         runner.run(1);
         runner.assertAllFlowFilesTransferred(TailFile.REL_SUCCESS, 0); // should not pull in data because no \n
 
@@ -1051,32 +1019,38 @@ public class TestTailFile {
     }
 
     @Test
-    public void testDetectNewFile() throws IOException {
-        runner.setProperty(TailFile.BASE_DIRECTORY, "target");
+    public void testDetectNewFile(@TempDir final Path tempDir) throws IOException {
+        runner.setProperty(TailFile.BASE_DIRECTORY, tempDir.toString());
         runner.setProperty(TailFile.MODE, TailFile.MODE_MULTIFILE);
-        runner.setProperty(TailFile.LOOKUP_FREQUENCY, "1 sec");
+        runner.setProperty(TailFile.LOOKUP_FREQUENCY, "100 ms");
         runner.setProperty(TailFile.FILENAME, "log_[0-9]*\\.txt");
         runner.setProperty(TailFile.RECURSIVE, "false");
 
-        initializeFile("target/log_1.txt", "firstLine\n");
+        final Path firstLog = tempDir.resolve("log_1.txt");
+        final String firstLine = "firstLine\n";
+        Files.writeString(firstLog, firstLine);
+
+        final Path secondLog = tempDir.resolve("log_2.txt");
+        final String secondLine = "secondLine\n";
 
         Runnable task = () -> {
             try {
-                initializeFile("target/log_2.txt", "newFile\n");
+                Files.writeString(secondLog, secondLine);
             } catch (Exception e) {
                 fail();
             }
         };
 
-        ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
-        executor.schedule(task, 2, TimeUnit.SECONDS);
+        try (ScheduledExecutorService executor = Executors.newScheduledThreadPool(1)) {
+            executor.schedule(task, 100, TimeUnit.MILLISECONDS);
 
-        runner.setRunSchedule(2000);
-        runner.run(3);
+            runner.setRunSchedule(100);
+            runner.run(3);
+        }
 
         runner.assertAllFlowFilesTransferred(TailFile.REL_SUCCESS, 2);
-        assertTrue(runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).stream().anyMatch(mockFlowFile -> mockFlowFile.isContentEqual("firstLine\n")));
-        assertTrue(runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).stream().anyMatch(mockFlowFile -> mockFlowFile.isContentEqual("newFile\n")));
+        assertTrue(runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).stream().anyMatch(mockFlowFile -> mockFlowFile.isContentEqual(firstLine)));
+        assertTrue(runner.getFlowFilesForRelationship(TailFile.REL_SUCCESS).stream().anyMatch(mockFlowFile -> mockFlowFile.isContentEqual(secondLine)));
 
         runner.shutdown();
     }
@@ -1145,7 +1119,7 @@ public class TestTailFile {
      * and where it is not possible to specify a single rolling pattern for all files.
      */
     @Test
-    public void testMultipleFilesInSameDirectory() throws IOException, InterruptedException {
+    public void testMultipleFilesInSameDirectory() throws IOException {
         runner.setProperty(TailFile.ROLLING_FILENAME_PATTERN, "${filename}.?");
         runner.setProperty(TailFile.START_POSITION, TailFile.START_CURRENT_FILE);
         runner.setProperty(TailFile.BASE_DIRECTORY, "target");
@@ -1181,8 +1155,6 @@ public class TestTailFile {
         myOtherRaf.write("guys".getBytes());
         raf.write("world".getBytes());
 
-        Thread.sleep(100L);
-
         runner.run(1);
         runner.assertAllFlowFilesTransferred(TailFile.REL_SUCCESS, 0); // should not pull in data because no \n
 
@@ -1210,27 +1182,21 @@ public class TestTailFile {
     }
 
     @Test
-    public void testMultipleFilesChangingNameStrategy() throws IOException, InterruptedException {
+    public void testMultipleFilesChangingNameStrategy(@TempDir final Path tempDir) throws IOException {
         runner.setProperty(TailFile.START_POSITION, TailFile.START_CURRENT_FILE);
         runner.setProperty(TailFile.MODE, TailFile.MODE_MULTIFILE);
-        runner.setProperty(TailFile.BASE_DIRECTORY, "target");
+        runner.setProperty(TailFile.BASE_DIRECTORY, tempDir.toString());
         runner.setProperty(TailFile.FILENAME, ".*app-.*.log");
-        runner.setProperty(TailFile.LOOKUP_FREQUENCY, "2s");
+        runner.setProperty(TailFile.LOOKUP_FREQUENCY, "100 ms");
         runner.setProperty(TailFile.MAXIMUM_AGE, "5s");
 
-        File multiChangeFirstFile = new File("target/app-2016-09-07.log");
-        if (multiChangeFirstFile.exists()) {
-            multiChangeFirstFile.delete();
-        }
+        File multiChangeFirstFile = tempDir.resolve("app-2016-09-07.log").toFile();
         assertTrue(multiChangeFirstFile.createNewFile());
 
         RandomAccessFile multiChangeFirstRaf = new RandomAccessFile(multiChangeFirstFile, "rw");
         multiChangeFirstRaf.write("hey\n".getBytes());
 
-        File multiChangeSndFile = new File("target/my-app-2016-09-07.log");
-        if (multiChangeSndFile.exists()) {
-            multiChangeSndFile.delete();
-        }
+        File multiChangeSndFile = tempDir.resolve("my-app-2016-09-07.log").toFile();
         assertTrue(multiChangeSndFile.createNewFile());
 
         RandomAccessFile multiChangeSndRaf = new RandomAccessFile(multiChangeSndFile, "rw");
@@ -1245,7 +1211,6 @@ public class TestTailFile {
         multiChangeFirstRaf.write("hey2\n".getBytes());
         multiChangeSndRaf.write("hello2\n".getBytes());
 
-        Thread.sleep(2000);
         runner.run(1, false);
 
         runner.assertAllFlowFilesTransferred(TailFile.REL_SUCCESS, 2);
@@ -1259,25 +1224,18 @@ public class TestTailFile {
         multiChangeFirstRaf.close();
         multiChangeSndRaf.close();
 
-        multiChangeFirstFile = new File("target/app-2016-09-08.log");
-        if (multiChangeFirstFile.exists()) {
-            multiChangeFirstFile.delete();
-        }
+        multiChangeFirstFile = tempDir.resolve("app-2016-09-08.log").toFile();
         assertTrue(multiChangeFirstFile.createNewFile());
 
         multiChangeFirstRaf = new RandomAccessFile(multiChangeFirstFile, "rw");
         multiChangeFirstRaf.write("hey\n".getBytes());
 
-        multiChangeSndFile = new File("target/my-app-2016-09-08.log");
-        if (multiChangeSndFile.exists()) {
-            multiChangeSndFile.delete();
-        }
+        multiChangeSndFile = tempDir.resolve("my-app-2016-09-08.log").toFile();
         assertTrue(multiChangeSndFile.createNewFile());
 
         multiChangeSndRaf = new RandomAccessFile(multiChangeSndFile, "rw");
         multiChangeSndRaf.write("hello\n".getBytes());
 
-        Thread.sleep(2000);
         runner.run(1);
         multiChangeFirstRaf.close();
         multiChangeSndRaf.close();
