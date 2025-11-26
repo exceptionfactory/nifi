@@ -74,6 +74,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -88,7 +89,6 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -613,46 +613,40 @@ public class StandardControllerServiceNode extends AbstractComponentNode impleme
         }
 
         final ControllerServiceProvider controllerServiceProvider = this.serviceProvider;
-        final StandardControllerServiceNode service = this;
-        AtomicLong enablingAttemptCount = new AtomicLong(0);
+        final StandardControllerServiceNode serviceNode = this;
         scheduler.execute(new Runnable() {
             @Override
             public void run() {
-                final ConfigurationContext configContext = new StandardConfigurationContext(StandardControllerServiceNode.this, controllerServiceProvider, null);
+                final ConfigurationContext configContext = new StandardConfigurationContext(serviceNode, controllerServiceProvider, null);
 
                 if (!isActive()) {
-                    LOG.warn("Enabling {} stopped: no active status", StandardControllerServiceNode.this);
+                    LOG.warn("Enabling {} stopped: no active status", serviceNode);
                     stateTransition.disable();
                     future.complete(null);
                     return;
                 }
 
-                final ValidationStatus validationStatus = getValidationStatus();
-                if (validationStatus != ValidationStatus.VALID) {
-                    final ValidationState validationState = getValidationState();
-                    LOG.debug("Enabling {} failed: Validation Status [{}] Errors {} Attempt [{}] Retrying...",
-                        StandardControllerServiceNode.this, validationStatus, validationState.getValidationErrors(), enablingAttemptCount.get());
-
-                    enablingAttemptCount.incrementAndGet();
-                    if (enablingAttemptCount.get() == 120 || enablingAttemptCount.get() % 3600 == 0) {
-                        final ControllerService controllerService = getControllerServiceImplementation();
-                        final ComponentLog componentLog = new SimpleProcessLogger(getIdentifier(), controllerService,
-                                new StandardLoggingContext(StandardControllerServiceNode.this));
-                        componentLog.error("Enabling {} failed: Validation Status [{}] Errors {}",
-                                service, validationStatus, validationState.getValidationErrors());
-                    }
-
+                // Perform Validation and evaluate status before continuing
+                performValidation();
+                final ValidationState validationState = getValidationState();
+                final ValidationStatus validationStatus = validationState.getStatus();
+                if (validationStatus == ValidationStatus.VALID) {
+                    LOG.debug("Enabling {} proceeding after performing validation", serviceNode);
+                } else if (completeExceptionallyOnFailure) {
+                    final Collection<ValidationResult> errors = validationState.getValidationErrors();
+                    final String message = "Enabling %s failed: Validation Status [%s] Errors %s".formatted(serviceNode, validationStatus, errors);
+                    future.completeExceptionally(new IllegalStateException(message));
+                } else {
                     try {
-                        scheduler.schedule(this, 1, TimeUnit.SECONDS);
-                    } catch (final RejectedExecutionException rejectedExecutionException) {
-                        LOG.error("Enabling {} failed: Validation Status [{}] Errors {}", StandardControllerServiceNode.this, validationStatus, validationState.getValidationErrors(),
-                                rejectedExecutionException);
+                        scheduler.schedule(this, 500, TimeUnit.MILLISECONDS);
+                        LOG.debug("Validation rescheduled in 500 ms for {}", serviceNode);
+                    } catch (final RejectedExecutionException e) {
+                        LOG.error("Validation rescheduling rejected for {}", serviceNode, e);
+                        final Collection<ValidationResult> errors = validationState.getValidationErrors();
+                        final String message = "Enabling %s rejected: Validation Status [%s] Errors %s".formatted(serviceNode, validationStatus, errors);
+                        future.completeExceptionally(new IllegalStateException(message));
                     }
-
-                    if (completeExceptionallyOnFailure) {
-                        future.completeExceptionally(new IllegalStateException("Cannot enable " + StandardControllerServiceNode.this + " because it is not valid"));
-                    }
-
+                    // Enable command rescheduled or rejected
                     return;
                 }
 
@@ -668,14 +662,14 @@ public class StandardControllerServiceNode extends AbstractComponentNode impleme
                     }
 
                     if (!shouldEnable) {
-                        LOG.info("Disabling {} after enabled due to disable action initiated", service);
+                        LOG.info("Disabling {} after enabled due to disable action initiated", serviceNode);
                         // Can only happen if user initiated DISABLE operation before service finished enabling. It's state will be
                         // set to DISABLING (see disable() operation)
                         invokeDisable(configContext);
                         stateTransition.disable();
                         future.complete(null);
                     } else {
-                        LOG.info("Enabled {}", service);
+                        LOG.info("Enabled {}", serviceNode);
                     }
                 } catch (final Exception e) {
                     if (completeExceptionallyOnFailure) {
@@ -683,8 +677,7 @@ public class StandardControllerServiceNode extends AbstractComponentNode impleme
                     }
 
                     final Throwable cause = e instanceof InvocationTargetException ? e.getCause() : e;
-                    final ComponentLog componentLog = new SimpleProcessLogger(getIdentifier(), controllerService,
-                            new StandardLoggingContext(StandardControllerServiceNode.this));
+                    final ComponentLog componentLog = new SimpleProcessLogger(getIdentifier(), controllerService, new StandardLoggingContext(serviceNode));
                     componentLog.error("Failed to invoke @OnEnabled method", cause);
                     invokeDisable(configContext);
 
@@ -699,7 +692,6 @@ public class StandardControllerServiceNode extends AbstractComponentNode impleme
 
         return future;
     }
-
 
     /**
      * Will atomically disable this service by invoking its @OnDisabled operation.
