@@ -138,7 +138,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v6
       - name: Cache Node Modules
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.npm
@@ -151,11 +151,11 @@ jobs:
           java-version: '21'
           cache: 'maven'
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - name: Evaluate Changed Paths
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
+        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d
         id: changes
         with:
           filters: |
@@ -213,7 +213,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v6
       - name: Cache Node Modules
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.npm
@@ -226,11 +226,11 @@ jobs:
           java-version: '25'
           cache: 'maven'
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - name: Evaluate Changed Paths
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
+        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d
         id: changes
         with:
           filters: |
@@ -282,7 +282,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v6
       - name: Cache Node Modules
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.npm
@@ -295,11 +295,11 @@ jobs:
           java-version: '21'
           cache: 'maven'
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - name: Evaluate Changed Paths
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
+        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d
         id: changes
         with:
           filters: |
@@ -361,7 +361,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v6
       - name: Cache Node Modules
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~\AppData\npm-cache
@@ -374,7 +374,7 @@ jobs:
           java-version: '21'
           cache: 'maven'
       - name: Evaluate Changed Paths
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
+        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d
         id: changes
         with:
           filters: |
