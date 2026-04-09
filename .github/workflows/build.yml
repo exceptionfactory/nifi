@@ -60,7 +60,7 @@ jobs:
     timeout-minutes: 10
     runs-on: ubuntu-24.04
     name: Validate Pull Request
-    if: github.event_name == 'pull_request' && github.repository == 'apache/nifi'
+    if: github.event_name == 'pull_request' && github.repository == 'apache/nifi' && github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout Code
         uses: actions/checkout@v6
@@ -107,12 +107,13 @@ jobs:
           COMMIT_COUNT: ${{ github.event.pull_request.commits }}
           GITHUB_EVENT_ACTION: ${{ github.event.action }}
         run: .github/scripts/build/validate-single-commit.sh
-      - name: Evaluate Validation Results
+      - name: Validation Results
         env:
           VALIDATION_FAILED: ${{ contains(steps.*.outcome, 'failure') }}
         run: |
           if [[ "${VALIDATION_FAILED}" == "true" ]]; then
-            echo "::error::Pull request validation failed"
+            RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "::error::Pull request validation failed. Review workflow run: ${RUN_URL}"
             exit 1
           fi
 
