@@ -24,9 +24,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Map;
-import java.util.Set;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -48,9 +46,6 @@ class AuthorizeComponentReferenceTest {
     private ComponentAuthorizable componentAuthorizable;
 
     @Mock
-    private Authorizable restrictedAuthorizable;
-
-    @Mock
     private Authorizable parameterContext;
 
     @Test
@@ -69,14 +64,4 @@ class AuthorizeComponentReferenceTest {
         verify(componentAuthorizable, never()).cleanUpResources();
     }
 
-    @Test
-    void testAuthorizeComponentConfigurationRestricted() {
-        when(componentAuthorizable.isRestricted()).thenReturn(true);
-        when(componentAuthorizable.getRestrictedAuthorizables()).thenReturn(Set.of(restrictedAuthorizable));
-
-        AuthorizeComponentReference.authorizeComponentConfiguration(authorizer, authorizableLookup, componentAuthorizable, null, null);
-
-        verify(restrictedAuthorizable).authorize(eq(authorizer), eq(RequestAction.WRITE), any());
-        verify(componentAuthorizable, never()).cleanUpResources();
-    }
 }

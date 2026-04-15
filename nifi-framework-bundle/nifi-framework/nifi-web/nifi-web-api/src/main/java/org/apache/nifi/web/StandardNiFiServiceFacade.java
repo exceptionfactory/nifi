@@ -76,7 +76,6 @@ import org.apache.nifi.components.ConfigVerificationResult;
 import org.apache.nifi.components.ConfigurableComponent;
 import org.apache.nifi.components.DescribedValue;
 import org.apache.nifi.components.PropertyDescriptor;
-import org.apache.nifi.components.RequiredPermission;
 import org.apache.nifi.components.ValidationResult;
 import org.apache.nifi.components.Validator;
 import org.apache.nifi.components.connector.Connector;
@@ -245,7 +244,6 @@ import org.apache.nifi.web.api.dto.ComponentDTO;
 import org.apache.nifi.web.api.dto.ComponentDifferenceDTO;
 import org.apache.nifi.web.api.dto.ComponentHistoryDTO;
 import org.apache.nifi.web.api.dto.ComponentReferenceDTO;
-import org.apache.nifi.web.api.dto.ComponentRestrictionPermissionDTO;
 import org.apache.nifi.web.api.dto.ComponentStateDTO;
 import org.apache.nifi.web.api.dto.ComponentValidationResultDTO;
 import org.apache.nifi.web.api.dto.ConfigVerificationResultDTO;
@@ -297,7 +295,6 @@ import org.apache.nifi.web.api.dto.PropertyHistoryDTO;
 import org.apache.nifi.web.api.dto.RemoteProcessGroupDTO;
 import org.apache.nifi.web.api.dto.RemoteProcessGroupPortDTO;
 import org.apache.nifi.web.api.dto.ReportingTaskDTO;
-import org.apache.nifi.web.api.dto.RequiredPermissionDTO;
 import org.apache.nifi.web.api.dto.ResourceDTO;
 import org.apache.nifi.web.api.dto.RevisionDTO;
 import org.apache.nifi.web.api.dto.SecretDTO;
@@ -5488,23 +5485,11 @@ public class StandardNiFiServiceFacade implements NiFiServiceFacade {
         entity.setConnectorsPermissions(dtoFactory.createPermissionsDto(authorizableLookup.getConnectors()));
         entity.setCanVersionFlows(CollectionUtils.isNotEmpty(flowRegistryDAO.getFlowRegistryClients().stream().map(c -> c.getIdentifier()).collect(Collectors.toSet())));
 
-        entity.setRestrictedComponentsPermissions(dtoFactory.createPermissionsDto(authorizableLookup.getRestrictedComponents()));
-
-        final Set<ComponentRestrictionPermissionDTO> componentRestrictionPermissions = new HashSet<>();
-        Arrays.stream(RequiredPermission.values()).forEach(requiredPermission -> {
-            final PermissionsDTO restrictionPermissions = dtoFactory.createPermissionsDto(authorizableLookup.getRestrictedComponents(requiredPermission));
-
-            final RequiredPermissionDTO requiredPermissionDto = new RequiredPermissionDTO();
-            requiredPermissionDto.setId(requiredPermission.getPermissionIdentifier());
-            requiredPermissionDto.setLabel(requiredPermission.getPermissionLabel());
-
-            final ComponentRestrictionPermissionDTO componentRestrictionPermissionDto = new ComponentRestrictionPermissionDTO();
-            componentRestrictionPermissionDto.setRequiredPermission(requiredPermissionDto);
-            componentRestrictionPermissionDto.setPermissions(restrictionPermissions);
-
-            componentRestrictionPermissions.add(componentRestrictionPermissionDto);
-        });
-        entity.setComponentRestrictionPermissions(componentRestrictionPermissions);
+        final PermissionsDTO restrictedComponentsPermissions = new PermissionsDTO();
+        restrictedComponentsPermissions.setCanRead(false);
+        restrictedComponentsPermissions.setCanWrite(false);
+        entity.setRestrictedComponentsPermissions(restrictedComponentsPermissions);
+        entity.setComponentRestrictionPermissions(Collections.emptySet());
 
         return entity;
     }

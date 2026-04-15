@@ -53,11 +53,9 @@ import org.apache.nifi.cluster.coordination.http.replication.UploadRequest;
 import org.apache.nifi.cluster.coordination.http.replication.UploadRequestReplicator;
 import org.apache.nifi.cluster.coordination.node.NodeConnectionState;
 import org.apache.nifi.cluster.protocol.NodeIdentifier;
-import org.apache.nifi.components.ConfigurableComponent;
 import org.apache.nifi.controller.FlowController;
 import org.apache.nifi.flow.VersionedReportingTaskSnapshot;
 import org.apache.nifi.processor.DataUnit;
-import org.apache.nifi.registry.flow.FlowRegistryUtils;
 import org.apache.nifi.stream.io.MaxLengthInputStream;
 import org.apache.nifi.web.IllegalClusterResourceRequestException;
 import org.apache.nifi.web.NiFiServiceFacade;
@@ -285,8 +283,7 @@ public class ControllerResource extends ApplicationResource {
             },
             security = {
                     @SecurityRequirement(name = "Write - /controller"),
-                    @SecurityRequirement(name = "Read - any referenced Controller Services - /controller-services/{uuid}"),
-                    @SecurityRequirement(name = "Write - if the Parameter Provider is restricted - /restricted-components")
+                    @SecurityRequirement(name = "Read - any referenced Controller Services - /controller-services/{uuid}")
             }
     )
     public Response createParameterProvider(
@@ -437,8 +434,7 @@ public class ControllerResource extends ApplicationResource {
             },
             security = {
                     @SecurityRequirement(name = "Write - /controller"),
-                    @SecurityRequirement(name = "Read - any referenced Controller Services - /controller-services/{uuid}"),
-                    @SecurityRequirement(name = "Write - if the Reporting Task is restricted - /restricted-components")
+                    @SecurityRequirement(name = "Read - any referenced Controller Services - /controller-services/{uuid}")
             }
     )
     public Response createReportingTask(
@@ -544,12 +540,6 @@ public class ControllerResource extends ApplicationResource {
                 importRequestEntity,
                 lookup -> {
                     authorizeController(RequestAction.WRITE);
-
-                    final Set<ConfigurableComponent> restrictedComponents = FlowRegistryUtils.getRestrictedComponents(requestSnapshot, serviceFacade);
-                    restrictedComponents.forEach(restrictedComponent -> {
-                        final ComponentAuthorizable restrictedComponentAuthorizable = lookup.getConfigurableComponent(restrictedComponent);
-                        authorizeRestrictions(authorizer, restrictedComponentAuthorizable);
-                    });
                 },
                 () -> {
                     // Nothing to verify
@@ -587,8 +577,7 @@ public class ControllerResource extends ApplicationResource {
             },
             security = {
                     @SecurityRequirement(name = "Write - /controller"),
-                    @SecurityRequirement(name = "Read - any referenced Controller Services - /controller-services/{uuid}"),
-                    @SecurityRequirement(name = "Write - if the Flow Analysis Rule is restricted - /restricted-components")
+                    @SecurityRequirement(name = "Read - any referenced Controller Services - /controller-services/{uuid}")
             }
     )
     public Response createFlowAnalysisRule(
@@ -2421,8 +2410,7 @@ public class ControllerResource extends ApplicationResource {
             },
             security = {
                     @SecurityRequirement(name = "Write - /controller"),
-                    @SecurityRequirement(name = "Read - any referenced Controller Services - /controller-services/{uuid}"),
-                    @SecurityRequirement(name = "Write - if the Controller Service is restricted - /restricted-components")
+                    @SecurityRequirement(name = "Read - any referenced Controller Services - /controller-services/{uuid}")
             }
     )
     public Response createControllerService(

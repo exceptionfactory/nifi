@@ -22,7 +22,6 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.nifi.annotation.behavior.InputRequirement.Requirement;
-import org.apache.nifi.annotation.behavior.Restricted;
 import org.apache.nifi.annotation.behavior.SideEffectFree;
 import org.apache.nifi.annotation.behavior.TriggerWhenAnyDestinationAvailable;
 import org.apache.nifi.annotation.behavior.TriggerWhenEmpty;
@@ -291,11 +290,6 @@ public class StandardProcessorNode extends ProcessorNode implements Connectable 
     @Override
     public Resource getResource() {
         return ResourceFactory.getComponentResource(ResourceType.Processor, getIdentifier(), getName());
-    }
-
-    @Override
-    public boolean isRestricted() {
-        return getProcessor().getClass().isAnnotationPresent(Restricted.class);
     }
 
     @Override
