@@ -29,15 +29,7 @@ public class StringUtils {
     public static final String EMPTY = "";
 
     public static boolean isBlank(final String str) {
-        if (str == null || str.isEmpty()) {
-            return true;
-        }
-        for (int i = 0; i < str.length(); i++) {
-            if (!Character.isWhitespace(str.charAt(i))) {
-                return false;
-            }
-        }
-        return true;
+        return str == null || str.isBlank();
     }
 
     public static boolean isNotBlank(final String str) {
@@ -59,7 +51,7 @@ public class StringUtils {
         if (prefix.length() > str.length()) {
             return false;
         }
-        return str.regionMatches(false, 0, prefix, 0, prefix.length());
+        return str.startsWith(prefix);
     }
 
     public static String substringAfter(final String str, final String separator) {
