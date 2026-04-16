@@ -26,8 +26,6 @@ import com.networknt.schema.SchemaRegistry;
 import com.networknt.schema.SpecificationVersion;
 import org.apache.nifi.annotation.behavior.InputRequirement;
 import org.apache.nifi.annotation.behavior.InputRequirement.Requirement;
-import org.apache.nifi.annotation.behavior.Restricted;
-import org.apache.nifi.annotation.behavior.Restriction;
 import org.apache.nifi.annotation.behavior.SideEffectFree;
 import org.apache.nifi.annotation.behavior.SupportsBatching;
 import org.apache.nifi.annotation.behavior.SystemResource;
@@ -39,7 +37,6 @@ import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.components.DescribedValue;
 import org.apache.nifi.components.PropertyDescriptor;
-import org.apache.nifi.components.RequiredPermission;
 import org.apache.nifi.components.ValidationContext;
 import org.apache.nifi.components.ValidationResult;
 import org.apache.nifi.components.resource.ResourceCardinality;
@@ -88,14 +85,7 @@ import java.util.stream.Collectors;
         otherwise if the input FlowFile contains newline-delimited JSON, only the first line will be validated."""
 )
 @SystemResourceConsideration(resource = SystemResource.MEMORY, description = "Validating JSON requires reading FlowFile content into memory")
-@Restricted(
-        restrictions = {
-                @Restriction(
-                        requiredPermission = RequiredPermission.REFERENCE_REMOTE_RESOURCES,
-                        explanation = "Schema configuration can reference resources over HTTP"
-                )
-        }
-)
+
 public class ValidateJson extends AbstractProcessor {
     public enum JsonSchemaStrategy implements DescribedValue {
         SCHEMA_NAME_PROPERTY(SCHEMA_NAME_PROPERTY_NAME + " Property",
