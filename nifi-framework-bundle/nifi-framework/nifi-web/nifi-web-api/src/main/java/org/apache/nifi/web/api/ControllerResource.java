@@ -41,6 +41,7 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.StreamingOutput;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.nifi.authorization.AuthorizeComponentReference;
+import org.apache.nifi.authorization.AuthorizeConfigVerification;
 import org.apache.nifi.authorization.AuthorizeControllerServiceReference;
 import org.apache.nifi.authorization.Authorizer;
 import org.apache.nifi.authorization.ComponentAuthorizable;
@@ -1252,7 +1253,9 @@ public class ControllerResource extends ApplicationResource {
                     "issuing a GET request to /flow-analysis-rules/{taskId}/verification-requests/{requestId}. Once the request is completed, the client is expected to issue a DELETE request to " +
                     "/flow-analysis-rules/{serviceId}/verification-requests/{requestId}.",
             security = {
-                    @SecurityRequirement(name = "Read - /flow-analysis-rules/{uuid}")
+                    @SecurityRequirement(name = "Write - /controller"),
+                    @SecurityRequirement(name = "Write - /flow-analysis-rules/{uuid}"),
+                    @SecurityRequirement(name = "Read - any referenced Controller Services - /controller-services/{uuid}")
             }
     )
     public Response submitFlowAnalysisRuleConfigVerificationRequest(
@@ -1286,7 +1289,7 @@ public class ControllerResource extends ApplicationResource {
         return withWriteLock(
                 serviceFacade,
                 flowAnalysisRuleConfigRequest,
-                lookup -> authorizeController(RequestAction.READ),
+                lookup -> AuthorizeConfigVerification.authorize(authorizer, lookup, lookup.getFlowAnalysisRule(flowAnalysisRuleId), requestDto.getProperties(), lookup.getController()),
                 () -> serviceFacade.verifyCanVerifyFlowAnalysisRuleConfig(flowAnalysisRuleId),
                 entity -> performAsyncFlowAnalysisRuleConfigVerification(entity, user)
         );
@@ -1596,7 +1599,8 @@ public class ControllerResource extends ApplicationResource {
                     + "/controller/registry-clients/{clientId}/config/verification-requests/{requestId} for status and "
                     + "DELETE the request once verification completes.",
             security = {
-                    @SecurityRequirement(name = "Read - /controller")
+                    @SecurityRequirement(name = "Write - /controller/registry-clients/{uuid}"),
+                    @SecurityRequirement(name = "Read - any referenced Controller Services - /controller-services/{uuid}")
             }
     )
     public Response submitRegistryClientConfigVerificationRequest(
@@ -1630,10 +1634,7 @@ public class ControllerResource extends ApplicationResource {
         return withWriteLock(
                 serviceFacade,
                 registryClientConfigRequest,
-                lookup -> {
-                    final Authorizable authorizable = lookup.getFlowRegistryClient(registryClientId).getAuthorizable();
-                    authorizable.authorize(authorizer, RequestAction.READ, user);
-                },
+                lookup -> AuthorizeConfigVerification.authorize(authorizer, lookup, lookup.getFlowRegistryClient(registryClientId), requestDto.getProperties()),
                 () -> serviceFacade.verifyCanVerifyFlowRegistryClientConfig(registryClientId),
                 entity -> performAsyncRegistryClientConfigVerification(entity, user)
         );

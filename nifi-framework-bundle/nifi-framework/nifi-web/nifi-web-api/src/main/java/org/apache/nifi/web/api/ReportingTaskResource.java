@@ -40,6 +40,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.nifi.authorization.AuthorizeComponentReference;
+import org.apache.nifi.authorization.AuthorizeConfigVerification;
 import org.apache.nifi.authorization.AuthorizeControllerServiceReference;
 import org.apache.nifi.authorization.Authorizer;
 import org.apache.nifi.authorization.ComponentAuthorizable;
@@ -795,7 +796,8 @@ public class ReportingTaskResource extends ApplicationResource {
                     "issuing a GET request to /reporting-tasks/{taskId}/verification-requests/{requestId}. Once the request is completed, the client is expected to issue a DELETE request to " +
                     "/reporting-tasks/{serviceId}/verification-requests/{requestId}.",
             security = {
-                    @SecurityRequirement(name = "Read - /reporting-tasks/{uuid}")
+                    @SecurityRequirement(name = "Write - /reporting-tasks/{uuid}"),
+                    @SecurityRequirement(name = "Read - any referenced Controller Services - /controller-services/{uuid}")
             }
     )
     public Response submitConfigVerificationRequest(
@@ -828,13 +830,8 @@ public class ReportingTaskResource extends ApplicationResource {
         return withWriteLock(
                 serviceFacade,
                 reportingTaskConfigRequest,
-                lookup -> {
-                    final ComponentAuthorizable reportingTask = lookup.getReportingTask(reportingTaskId);
-                    reportingTask.getAuthorizable().authorize(authorizer, RequestAction.READ, NiFiUserUtils.getNiFiUser());
-                },
-                () -> {
-                    serviceFacade.verifyCanVerifyReportingTaskConfig(reportingTaskId);
-                },
+                lookup -> AuthorizeConfigVerification.authorize(authorizer, lookup, lookup.getReportingTask(reportingTaskId), requestDto.getProperties()),
+                () -> serviceFacade.verifyCanVerifyReportingTaskConfig(reportingTaskId),
                 entity -> performAsyncConfigVerification(entity, user)
         );
     }
