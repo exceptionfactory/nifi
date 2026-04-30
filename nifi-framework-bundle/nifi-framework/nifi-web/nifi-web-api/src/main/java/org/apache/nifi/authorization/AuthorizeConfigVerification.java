@@ -19,6 +19,7 @@ package org.apache.nifi.authorization;
 import org.apache.nifi.authorization.resource.Authorizable;
 import org.apache.nifi.authorization.user.NiFiUser;
 import org.apache.nifi.authorization.user.NiFiUserUtils;
+import org.apache.nifi.parameter.ParameterContext;
 
 import java.util.Map;
 
@@ -74,5 +75,10 @@ public final class AuthorizeConfigVerification {
         component.getAuthorizable().authorize(authorizer, RequestAction.WRITE, user);
 
         AuthorizeControllerServiceReference.authorizeControllerServiceReferences(proposedProperties, component, authorizer, lookup);
+
+        final ParameterContext parameterContext = component.getParameterContext();
+        if (parameterContext != null) {
+            AuthorizeParameterReference.authorizeParameterReferences(proposedProperties, authorizer, parameterContext, user);
+        }
     }
 }

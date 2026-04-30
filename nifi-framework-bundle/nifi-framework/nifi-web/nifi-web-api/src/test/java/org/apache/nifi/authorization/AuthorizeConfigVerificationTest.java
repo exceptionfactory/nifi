@@ -17,6 +17,9 @@
 package org.apache.nifi.authorization;
 
 import org.apache.nifi.authorization.resource.Authorizable;
+import org.apache.nifi.components.PropertyDescriptor;
+import org.apache.nifi.controller.AbstractControllerService;
+import org.apache.nifi.parameter.ParameterContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -26,6 +29,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.never;
@@ -34,6 +38,10 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class AuthorizeConfigVerificationTest {
+
+    private static final String PROPERTY = "URL";
+    private static final String PARAMETER_REFERENCE = "#{url}";
+    private static final String CONTROLLER_SERVICE_ID = "controller-service-id";
 
     @Mock
     private Authorizer authorizer;
@@ -49,6 +57,18 @@ class AuthorizeConfigVerificationTest {
 
     @Mock
     private Authorizable ancestor;
+
+    @Mock
+    private PropertyDescriptor propertyDescriptor;
+
+    @Mock
+    private ParameterContext parameterContext;
+
+    @Mock
+    private ComponentAuthorizable controllerService;
+
+    @Mock
+    private Authorizable controllerServiceAuthorizable;
 
     @Test
     void testAuthorizeComponentWriteApproved() {
@@ -68,6 +88,37 @@ class AuthorizeConfigVerificationTest {
 
         verify(ancestor).authorize(eq(authorizer), eq(RequestAction.WRITE), any());
         verify(componentAuthorizableDelegate).authorize(eq(authorizer), eq(RequestAction.WRITE), any());
+    }
+
+    @Test
+    void testAuthorizeComponentWriteParameterContextApproved() {
+        when(componentAuthorizable.getAuthorizable()).thenReturn(componentAuthorizableDelegate);
+        when(componentAuthorizable.getParameterContext()).thenReturn(parameterContext);
+        when(componentAuthorizable.getPropertyDescriptor(eq(PROPERTY))).thenReturn(propertyDescriptor);
+
+        final Map<String, String> properties = Map.of(PROPERTY, PARAMETER_REFERENCE);
+        AuthorizeConfigVerification.authorize(authorizer, authorizableLookup, componentAuthorizable, properties);
+
+        verify(componentAuthorizableDelegate).authorize(eq(authorizer), eq(RequestAction.WRITE), any());
+        verify(ancestor, never()).authorize(any(), any(), any());
+        verify(parameterContext).authorize(eq(authorizer), eq(RequestAction.READ), any());
+    }
+
+    @Test
+    void testAuthorizeComponentWriteControllerServiceApproved() {
+        when(componentAuthorizable.getAuthorizable()).thenReturn(componentAuthorizableDelegate);
+        when(componentAuthorizable.getParameterContext()).thenReturn(parameterContext);
+        when(componentAuthorizable.getPropertyDescriptor(eq(PROPERTY))).thenReturn(propertyDescriptor);
+        doReturn(MockControllerService.class).when(propertyDescriptor).getControllerServiceDefinition();
+        when(authorizableLookup.getControllerService(eq(CONTROLLER_SERVICE_ID))).thenReturn(controllerService);
+        when(controllerService.getAuthorizable()).thenReturn(controllerServiceAuthorizable);
+
+        final Map<String, String> properties = Map.of(PROPERTY, CONTROLLER_SERVICE_ID);
+        AuthorizeConfigVerification.authorize(authorizer, authorizableLookup, componentAuthorizable, properties);
+
+        verify(componentAuthorizableDelegate).authorize(eq(authorizer), eq(RequestAction.WRITE), any());
+        verify(ancestor, never()).authorize(any(), any(), any());
+        verify(controllerServiceAuthorizable).authorize(eq(authorizer), eq(RequestAction.READ), any());
     }
 
     @Test
@@ -95,5 +146,9 @@ class AuthorizeConfigVerificationTest {
         assertThrows(AccessDeniedException.class, () -> AuthorizeConfigVerification.authorize(authorizer, authorizableLookup, componentAuthorizable, Map.of(), ancestor));
 
         verify(componentAuthorizable, never()).getAuthorizable();
+    }
+
+    private static class MockControllerService extends AbstractControllerService {
+
     }
 }
