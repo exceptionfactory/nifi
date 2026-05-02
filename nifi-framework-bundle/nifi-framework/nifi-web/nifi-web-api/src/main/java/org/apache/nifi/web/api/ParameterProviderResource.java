@@ -42,6 +42,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.nifi.authorization.AuthorizableLookup;
+import org.apache.nifi.authorization.AuthorizeComponentAnalysis;
 import org.apache.nifi.authorization.AuthorizeComponentReference;
 import org.apache.nifi.authorization.AuthorizeConfigVerification;
 import org.apache.nifi.authorization.AuthorizeControllerServiceReference;
@@ -1195,7 +1196,8 @@ public class ParameterProviderResource extends AbstractParameterResource {
                 configurationAnalysis,
                 lookup -> {
                     final ComponentAuthorizable parameterProvider = lookup.getParameterProvider(parameterProviderId);
-                    parameterProvider.getAuthorizable().authorize(authorizer, RequestAction.READ, NiFiUserUtils.getNiFiUser());
+                    final Map<String, String> properties = configurationAnalysis.getConfigurationAnalysis().getProperties();
+                    AuthorizeComponentAnalysis.authorize(authorizer, lookup, parameterProvider, properties, parameterProvider.getParameterContext());
                 },
                 () -> {
                 },

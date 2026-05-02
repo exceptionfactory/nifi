@@ -39,6 +39,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.nifi.authorization.AuthorizeComponentAnalysis;
 import org.apache.nifi.authorization.AuthorizeComponentReference;
 import org.apache.nifi.authorization.AuthorizeConfigVerification;
 import org.apache.nifi.authorization.AuthorizeControllerServiceReference;
@@ -672,7 +673,7 @@ public class ProcessorResource extends ApplicationResource {
                 configurationAnalysis,
                 lookup -> {
                     final ComponentAuthorizable processor = lookup.getProcessor(processorId);
-                    processor.getAuthorizable().authorize(authorizer, RequestAction.READ, NiFiUserUtils.getNiFiUser());
+                    AuthorizeComponentAnalysis.authorize(authorizer, lookup, processor, configurationAnalysis.getConfigurationAnalysis().getProperties(), processor.getParameterContext());
                 },
                 () -> {
                 },

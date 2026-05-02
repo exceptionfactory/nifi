@@ -39,6 +39,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.nifi.authorization.AuthorizeComponentAnalysis;
 import org.apache.nifi.authorization.AuthorizeComponentReference;
 import org.apache.nifi.authorization.AuthorizeConfigVerification;
 import org.apache.nifi.authorization.AuthorizeControllerServiceReference;
@@ -961,7 +962,8 @@ public class ControllerServiceResource extends ApplicationResource {
                 configurationAnalysis,
                 lookup -> {
                     final ComponentAuthorizable controllerService = lookup.getControllerService(controllerServiceId);
-                    controllerService.getAuthorizable().authorize(authorizer, RequestAction.READ, NiFiUserUtils.getNiFiUser());
+                    final Map<String, String> properties = configurationAnalysis.getConfigurationAnalysis().getProperties();
+                    AuthorizeComponentAnalysis.authorize(authorizer, lookup, controllerService, properties, controllerService.getParameterContext());
                 },
                 () -> {
                 },

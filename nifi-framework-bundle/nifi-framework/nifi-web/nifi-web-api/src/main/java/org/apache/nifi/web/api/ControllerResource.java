@@ -40,6 +40,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.StreamingOutput;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.nifi.authorization.AuthorizeComponentAnalysis;
 import org.apache.nifi.authorization.AuthorizeComponentReference;
 import org.apache.nifi.authorization.AuthorizeConfigVerification;
 import org.apache.nifi.authorization.AuthorizeControllerServiceReference;
@@ -1221,7 +1222,11 @@ public class ControllerResource extends ApplicationResource {
         return withWriteLock(
                 serviceFacade,
                 configurationAnalysis,
-                lookup -> authorizeController(RequestAction.READ),
+                lookup -> {
+                    authorizeController(RequestAction.READ);
+                    final ComponentAuthorizable authorizable = lookup.getFlowAnalysisRule(flowAnalysisRuleId);
+                    AuthorizeComponentAnalysis.authorizeProposedReferences(authorizer, lookup, authorizable, configurationAnalysis.getConfigurationAnalysis().getProperties(), null);
+                },
                 () -> {
                 },
                 entity -> {
@@ -1567,8 +1572,8 @@ public class ControllerResource extends ApplicationResource {
                 serviceFacade,
                 configurationAnalysis,
                 lookup -> {
-                    final Authorizable authorizable = lookup.getFlowRegistryClient(registryClientId).getAuthorizable();
-                    authorizable.authorize(authorizer, RequestAction.READ, NiFiUserUtils.getNiFiUser());
+                    final ComponentAuthorizable registryClient = lookup.getFlowRegistryClient(registryClientId);
+                    AuthorizeComponentAnalysis.authorize(authorizer, lookup, registryClient, configurationAnalysis.getConfigurationAnalysis().getProperties(), null);
                 },
                 () -> {
                 },

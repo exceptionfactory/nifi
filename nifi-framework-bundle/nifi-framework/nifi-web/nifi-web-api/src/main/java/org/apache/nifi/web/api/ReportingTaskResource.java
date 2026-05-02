@@ -39,6 +39,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.nifi.authorization.AuthorizeComponentAnalysis;
 import org.apache.nifi.authorization.AuthorizeComponentReference;
 import org.apache.nifi.authorization.AuthorizeConfigVerification;
 import org.apache.nifi.authorization.AuthorizeControllerServiceReference;
@@ -764,7 +765,7 @@ public class ReportingTaskResource extends ApplicationResource {
                 configurationAnalysis,
                 lookup -> {
                     final ComponentAuthorizable reportingTask = lookup.getReportingTask(reportingTaskId);
-                    reportingTask.getAuthorizable().authorize(authorizer, RequestAction.READ, NiFiUserUtils.getNiFiUser());
+                    AuthorizeComponentAnalysis.authorize(authorizer, lookup, reportingTask, configurationAnalysis.getConfigurationAnalysis().getProperties(), reportingTask.getParameterContext());
                 },
                 () -> {
                 },
