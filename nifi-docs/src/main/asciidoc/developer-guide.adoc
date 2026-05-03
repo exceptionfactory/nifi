@@ -1940,39 +1940,30 @@ that references a Controller Service as such:
 
 [source,java]
 ----
-public static final PropertyDescriptor SSL_CONTEXT_SERVICE = new PropertyDescriptor.Builder()
-  .name("SSL Context Service")
-  .description("Specified the SSL Context Service that can be used to create secure connections")
+public static final PropertyDescriptor SSL_CONTEXT_PROVIDER = new PropertyDescriptor.Builder()
+  .name("SSL Context Provider")
+  .description("Specifies the service for securing connections encrypted with Transport Layer Security")
   .required(true)
-  .identifiesControllerService(SSLContextService.class)
+  .identifiesControllerService(SSLContextProvider.class)
   .build();
 ----
 
 Using this method, the user will be prompted to supply the SSL Context
-Service that should be used. This is
+Provider that should be used. This is
 done by providing the user with a drop-down menu from which they are
-able to choose any of the `SSLContextService`
-configurations that have been configured, regardless of the implementation.
+able to choose any of the `SSLContextProvider`
+instances that have been configured, regardless of the implementation.
 
 In order to make use of this service, the Processor can use code such as:
 
 [source,java]
 ----
-final SSLContextService sslContextService = context.getProperty(SSL_CONTEXT_SERVICE)
-  .asControllerService(SSLContextService.class);
+final SSLContextProvider sslContextProvider = context.getProperty(SSL_CONTEXT_PROVIDER)
+  .asControllerService(SSLContextProvider.class);
 ----
 
-Note here that `SSLContextService` is an interface that extends
-ControllerService. The only implementation
-at this time is the `StandardSSLContextService`. However, the
-Processor developer need not worry about this
-detail.
-
-
-
-
-
-
+Note here that `SSLContextProvider` is an interface that extends
+ControllerService.
 
 == Reporting Tasks
 
@@ -2519,7 +2510,7 @@ far less complicated. Note here that the
 This is done so that any NAR that has a dependency on
 `my-controller-service-api-nar` will also be able to access
 all of the Controller Services that are provided by the
-`nifi-standard-services-api-nar`, such as the `SSLContextService`.
+`nifi-standard-services-api-nar`, such as the `SSLContextProvider`.
 In this same vein, it is not necessary to create a different
 "service-api" NAR for each service. Instead, it often
 makes sense to have a single "service-api" NAR that encapsulates the
